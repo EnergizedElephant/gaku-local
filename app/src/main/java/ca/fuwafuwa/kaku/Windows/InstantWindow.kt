@@ -2,8 +2,12 @@ package ca.fuwafuwa.kaku.Windows
 
 import android.content.Context
 import android.graphics.Color
+import android.text.Layout
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.RelativeLayout
 import android.widget.TextView
 
 import ca.fuwafuwa.kaku.Ocr.OcrResult
@@ -14,13 +18,15 @@ import ca.fuwafuwa.kaku.Windows.Views.SquareGridView
 import ca.fuwafuwa.kaku.dpToPx
 import kotlin.math.max
 
-class InstantWindow(private val ccontext: Context, private val ocrResult: OcrResult) : Window(ccontext, R.layout.instant_window), SquareGridView.SquareViewListener
+class InstantWindow(private val ccontext: Context, private val ocrResult: OcrResult) : Window(ccontext, R.layout.instant_window)
 {
     private val isBoxHorizontal: Boolean
         get()
         {
             return ocrResult.boxParams.width > ocrResult.boxParams.height;
         }
+
+    private val instantKanjiWindow = InstantKanjiWindow(context, ocrResult)
 
     init
     {
@@ -42,31 +48,17 @@ class InstantWindow(private val ccontext: Context, private val ocrResult: OcrRes
         text.setTextColor(Color.BLACK)
     }
 
-    override fun onSquareScrollStart(kanjiView: KanjiCharacterView?, e: MotionEvent?)
-    {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
-
-    override fun onSquareScroll(kanjiView: KanjiCharacterView?, oe: MotionEvent?, e: MotionEvent?)
-    {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
-
-    override fun onSquareScrollEnd(kanjiView: KanjiCharacterView?, e: MotionEvent?)
-    {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
-
-    override fun onSquareTouch(kanjiView: KanjiCharacterView?)
-    {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
-
     override fun onDown(e: MotionEvent?): Boolean
     {
         //InformationWindow(context, ocrResult)
         stop()
         return super.onDown(e)
+    }
+
+    override fun stop()
+    {
+        instantKanjiWindow.stop()
+        super.stop()
     }
 
     private fun calcParamsForHorizontal()
