@@ -20,7 +20,6 @@
         app:layout_constraintVertical_bias="0.25">
 
         <TextView
-            android:id="@+id/kaku_logo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
@@ -29,7 +28,6 @@
             android:textSize="200dp" />
 
         <TextView
-            android:id="@+id/kaku_title"
             android:layout_width="300dp"
             android:layout_height="wrap_content"
             android:text="Welcome to Kaku!"
@@ -37,11 +35,10 @@
             android:textSize="32dp" />
 
         <TextView
-            android:id="@+id/kaku_instruction"
             android:layout_width="300dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="Please take the next few minutes reading through the tutorial to familiarize yourself with Kaku. There's a lot to learn!\n\nTo begin, please slide right."
+            android:text="Please take the next few minutes to read through the tutorial and familiarize yourself with Kaku. There's a lot to learn!\n\nTo begin, slide right."
             android:textColor="@color/PrimaryDark"
             android:textSize="20dp" />
     </LinearLayout>
