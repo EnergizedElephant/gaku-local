@@ -16,9 +16,9 @@ class TutorialActivity : AppCompatActivity()
             if (position == 0){
                 return TutorialWelcomeFragment.newInstance()
             }
-            if (position in 1..9)
+            if (position in 1..SECTIONS.size)
             {
-                return TutorialFragment.newInstance(position)
+                return TutorialFragment.newInstance(SECTIONS[position - 1])
             }
 
             return TutorialEndFragment.newInstance()
@@ -26,7 +26,7 @@ class TutorialActivity : AppCompatActivity()
 
         override fun getCount(): Int
         {
-            return 11
+            return SECTIONS.size + 2
         }
     }
 
@@ -50,6 +50,9 @@ class TutorialActivity : AppCompatActivity()
     companion object
     {
         private val TAG = TutorialActivity::class.java.name
+
+        // The TutorialFragment sections shown, in order. Section 3 (Kaku's image filter) is gone.
+        private val SECTIONS = listOf(1, 2, 4, 5, 6, 7, 8, 9)
     }
 }
 
