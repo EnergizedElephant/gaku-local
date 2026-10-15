@@ -291,16 +291,12 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
 
                         val pos = symbol.boundingBox ?: android.graphics.Rect()
 
-                        // Calculate relative position to the original full-screen bitmap
+                        // Position within the crop, which is the bitmap DisplayDataOcr holds and the edit and
+                        // lookalike windows cut the character's image from
                         val char = SquareCharOcr(
                             displayData,
                             choices,
-                            intArrayOf(
-                                pos.left + ocrParams.offsetX,
-                                pos.top + ocrParams.offsetY,
-                                pos.right + ocrParams.offsetX,
-                                pos.bottom + ocrParams.offsetY
-                            )
+                            intArrayOf(pos.left, pos.top, pos.right, pos.bottom)
                         )
                         ocrChars.add(char)
                         chars.add(char)
@@ -309,7 +305,7 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
             }
         }
 
-        correctFromFurigana(furiganaPairs, lineChars, lineBox, ocrParams)
+        correctFromFurigana(furiganaPairs, lineChars, lineBox)
         displayData.assignIndicies()
         return displayData
     }
@@ -322,7 +318,7 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
      */
     private fun correctFromFurigana(furiganaPairs: List<Pair<Text.Line, Text.Line>>,
                                     lineChars: IdentityHashMap<Text.Line, MutableList<SquareCharOcr>>,
-                                    lineBox: (Text.Line) -> IntArray?, ocrParams: OcrParams) {
+                                    lineBox: (Text.Line) -> IntArray?) {
         class Annotated(val reading: String, val chars: List<SquareCharOcr>, val following: List<SquareCharOcr>)
 
         val annotated = furiganaPairs.mapNotNull { (furigana, line) ->
@@ -335,8 +331,7 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
 
             // The characters whose centres lie alongside the furigana, give or take a quarter character
             val vertical = l[3] - l[1] > l[2] - l[0]
-            val (start, end) = if (vertical) f[1] + ocrParams.offsetY to f[3] + ocrParams.offsetY
-                               else f[0] + ocrParams.offsetX to f[2] + ocrParams.offsetX
+            val (start, end) = if (vertical) f[1] to f[3] else f[0] to f[2]
             val slack = (if (vertical) l[2] - l[0] else l[3] - l[1]) / 4
             val beside = chars.indices.filter { i ->
                 val p = chars[i].bitmapPos
