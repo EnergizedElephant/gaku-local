@@ -14,6 +14,7 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.Image;
@@ -158,7 +159,10 @@ public class MainService extends Service implements Stoppable {
     private MainServiceHandler mHandler;
 
     private int mRotation;
+    // The screen's size in its current orientation. Guarded by mScreenshotLock.
     private Point mRealDisplaySize = new Point();
+    // Width and height of the square virtual display
+    private int mVirtualDisplaySize;
 
     private ProjectionCallback mProjectionCallback;
     // Reported by ProjectionCallback on Android 14+; null until then
@@ -236,9 +240,13 @@ public class MainService extends Service implements Stoppable {
         if (mWindowCoordinator.hasWindow(Constants.WINDOW_CAPTURE) && mMediaProjection != null) {
             final int rotation = mDisplay.getRotation();
             if (rotation != mRotation) {
-                Log.d(TAG, "Orientation changed. Re-creating Virtual Display.");
+                Log.d(TAG, "Orientation changed");
                 mRotation = rotation;
-                createVirtualDisplay(); // This will now use the new rotation
+                synchronized (mScreenshotLock) {
+                    mDisplay.getRealSize(mRealDisplaySize);
+                    // It shows the old orientation
+                    closeLatestImage();
+                }
                 mWindowCoordinator.reinitAllWindows();
             }
         }
@@ -335,15 +343,15 @@ public class MainService extends Service implements Stoppable {
     }
 
     /**
-     * A screenshot showing the screen as it was at or after {@code sinceNanos} ({@link System#nanoTime()}),
-     * or null if nothing has been captured.
+     * {@code region} of the screen (in screen coordinates) as it was at or after {@code sinceNanos}
+     * ({@link System#nanoTime()}), or null if nothing has been captured or the region is off screen.
      *
      * The virtual display only renders a frame when the captured content changes. So this waits briefly
      * for a frame rendered after {@code sinceNanos}; if none arrives, the screen hasn't changed and the
      * newest frame is still current. That's the usual case in single-app mode, where Gaku's own windows
      * aren't part of the captured content.
      */
-    public Bitmap getScreenshotSince(long sinceNanos) {
+    public Bitmap getScreenshotSince(long sinceNanos, Rect region) {
         synchronized (mScreenshotLock) {
             try {
                 long deadline = System.nanoTime() + NO_NEW_FRAME_WAIT_NS;
@@ -370,7 +378,7 @@ public class MainService extends Service implements Stoppable {
                 }
                 Log.d(TAG, String.format("Screenshot from %s frame, %.1f ms after the request",
                         gotNewFrame ? "a new" : "the last", (mLatestImage.getTimestamp() - sinceNanos) / 1e6));
-                return convertImageToBitmap(mLatestImage);
+                return cropFrame(mLatestImage, region);
             } catch (InterruptedException e) {
                 return null;
             } catch (Exception e) {
@@ -403,19 +411,28 @@ public class MainService extends Service implements Stoppable {
         }
     }
 
-    private Bitmap convertImageToBitmap(Image image) {
-        Image.Plane[] planes = image.getPlanes();
-        java.nio.ByteBuffer buffer = planes[0].getBuffer();
-        // The same frame can be converted more than once, and copying advances the buffer's position
-        buffer.rewind();
-        int pixelStride = planes[0].getPixelStride();
-        int rowStride = planes[0].getRowStride();
-        int rowPadding = rowStride - pixelStride * image.getWidth();
+    /**
+     * Copies {@code screenRegion} (in screen coordinates) out of a frame, or returns null if it's off
+     * screen. Android letterboxes the screen into the square virtual display, centred and unscaled.
+     */
+    private Bitmap cropFrame(Image image, Rect screenRegion) {
+        Rect region = new Rect(screenRegion);
+        region.offset((image.getWidth() - mRealDisplaySize.x) / 2, (image.getHeight() - mRealDisplaySize.y) / 2);
+        if (region.isEmpty() || region.left < 0 || region.top < 0 ||
+                region.right > image.getWidth() || region.bottom > image.getHeight()) {
+            return null;
+        }
 
-        Bitmap bitmap = Bitmap.createBitmap(image.getWidth() + rowPadding / pixelStride, image.getHeight(),
-                Bitmap.Config.ARGB_8888);
-        bitmap.copyPixelsFromBuffer(buffer);
-        return bitmap;
+        Image.Plane plane = image.getPlanes()[0];
+        java.nio.ByteBuffer buffer = plane.getBuffer();
+        int rowStride = plane.getRowStride();
+
+        // copyPixelsFromBuffer() copies whole rows from the buffer's position, so copy the region's rows
+        // (the same frame can be cropped more than once), then cut out its columns
+        Bitmap rows = Bitmap.createBitmap(rowStride / plane.getPixelStride(), region.height(), Bitmap.Config.ARGB_8888);
+        buffer.position(region.top * rowStride);
+        rows.copyPixelsFromBuffer(buffer);
+        return Bitmap.createBitmap(rows, region.left, 0, region.width(), region.height());
     }
 
     private Notification getNotification() {
@@ -472,27 +489,27 @@ public class MainService extends Service implements Stoppable {
         int mDensity = metrics.densityDpi;
         mDisplay = mWindowManager.getDefaultDisplay();
 
-        // get width and height
-        mDisplay.getRealSize(mRealDisplaySize);
-
-        // start capture reader
-        Log.d(TAG, String.format("Starting Projection: %dx%d", mRealDisplaySize.x, mRealDisplaySize.y));
-
         // One image is held as mLatestImage, and acquireLatestImage() needs two more to skip to the newest
         final int maxImages = 3;
 
         synchronized (mScreenshotLock) {
+            mDisplay.getRealSize(mRealDisplaySize);
+
             if (mVirtualDisplay == null) {
-                mImageReader = ImageReader.newInstance(mRealDisplaySize.x, mRealDisplaySize.y, PixelFormat.RGBA_8888,
-                        maxImages);
-                mVirtualDisplay = mMediaProjection.createVirtualDisplay(getClass().getName(), mRealDisplaySize.x,
-                        mRealDisplaySize.y, mDensity, VIRTUAL_DISPLAY_FLAGS, mImageReader.getSurface(), null, mHandler);
-            } else {
-                ImageReader newImageReader = ImageReader.newInstance(mRealDisplaySize.x, mRealDisplaySize.y,
+                // Square, so the screen fits in either orientation and the display never needs resizing.
+                // Resizing it on rotation sometimes left Android mirroring the rotated screen with the
+                // old scaling (seen on Android 15: portrait frames shrunk to 62.5% and shifted right).
+                mVirtualDisplaySize = Math.max(mRealDisplaySize.x, mRealDisplaySize.y);
+                Log.d(TAG, String.format("Starting Projection: %dx%d", mVirtualDisplaySize, mVirtualDisplaySize));
+                mImageReader = ImageReader.newInstance(mVirtualDisplaySize, mVirtualDisplaySize,
                         PixelFormat.RGBA_8888, maxImages);
-                mVirtualDisplay.resize(mRealDisplaySize.x, mRealDisplaySize.y, mDensity);
+                mVirtualDisplay = mMediaProjection.createVirtualDisplay(getClass().getName(), mVirtualDisplaySize,
+                        mVirtualDisplaySize, mDensity, VIRTUAL_DISPLAY_FLAGS, mImageReader.getSurface(), null, mHandler);
+            } else {
+                // Shown again after being hidden
+                ImageReader newImageReader = ImageReader.newInstance(mVirtualDisplaySize, mVirtualDisplaySize,
+                        PixelFormat.RGBA_8888, maxImages);
                 mVirtualDisplay.setSurface(newImageReader.getSurface());
-                // A frame from before a rotation no longer matches the screen
                 closeLatestImage();
                 if (mImageReader != null) {
                     mImageReader.close();

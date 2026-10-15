@@ -2,6 +2,7 @@ package ca.fuwafuwa.gaku.Windows
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.media.Image
 import android.os.Build
@@ -51,7 +52,7 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
     private var mCommonParser: CommonParser? = null
 
     // Helper class to hold data
-    private inner class ScreenshotForOcr(val crop: Bitmap?, val orig: Bitmap?, val params: BoxParams?)
+    private inner class ScreenshotForOcr(val crop: Bitmap?, val params: BoxParams?)
 
     init
     {
@@ -371,36 +372,18 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
 
         try
         {
-            val screenshot = service.getScreenshotSince(sinceNanos) ?: return null
+            // Inside the box's border
+            val borderSize = dpToPx(service, 1) + 1
+            val region = Rect(box.x + borderSize, box.y + borderSize,
+                    box.x + maxOf(box.width - borderSize, borderSize + 1), box.y + maxOf(box.height - borderSize, borderSize + 1))
 
-            // The box can briefly be outside a frame captured before a rotation
-            if (box.x + box.width > screenshot.width || box.y + box.height > screenshot.height)
-            {
-                return null
-            }
-
-            return ScreenshotForOcr(getCroppedBitmap(screenshot, box), screenshot, box)
+            val crop = service.getScreenshotSince(sinceNanos, region) ?: return null
+            return ScreenshotForOcr(crop, box)
         } catch (e: Exception)
         {
             Log.e(TAG, "Capture failed", e)
         }
         return null
-    }
-
-
-    private fun getCroppedBitmap(screenshot: Bitmap, box: BoxParams): Bitmap
-    {
-        val borderSize = dpToPx(context, 1) + 1
-        
-        // Safety check for bounds
-        val width = if (box.width - 2 * borderSize > 0) box.width - 2 * borderSize else 1
-        val height = if (box.height - 2 * borderSize > 0) box.height - 2 * borderSize else 1
-        
-        return Bitmap.createBitmap(screenshot,
-                box.x + borderSize,
-                box.y + borderSize,
-                width,
-                height)
     }
 
     companion object
