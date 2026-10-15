@@ -14,5 +14,7 @@ This, unfortunately, does means there is no "kanji alternative" selection screen
 ### Credits & License
 This project is based on **Kaku**, originally developed by [0xbad1d3a5](https://github.com/0xbad1d3a5).
 
+The visually similar kanji offered as alternatives (`app/src/main/assets/similar_kanji.txt`) come from Lars Yencken's [kanji confusion data](https://lars.yencken.org/datasets/kanji-confusion/) (stroke edit distance; Yencken & Baldwin, 2008), licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). `tools/similar_kanji.py` rebuilds the file from `jyouyou__strokeEditDistance.csv`.
+
 Licensed under the **BSD 3-Clause License**.
 See the [LICENSE](LICENSE) file for the full original license text.

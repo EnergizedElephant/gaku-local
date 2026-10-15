@@ -318,6 +318,19 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
                 }
             }
         }
+
+        // Then visually similar kanji, most similar first (see tools/similar_kanji.py)
+        mContext.assets.open(SIMILAR_KANJI_ASSET).bufferedReader().useLines { lines ->
+            for (line in lines) {
+                if (line.startsWith("#")) continue
+                val existing = similarChars.getOrPut(line.substringBefore(' ')) { mutableListOf() }
+                for (kanji in line.substringAfter(' ')) {
+                    if (!existing.contains(kanji.toString())) {
+                        existing.add(kanji.toString())
+                    }
+                }
+            }
+        }
         return similarChars
     }
 
@@ -342,6 +355,7 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
     companion object {
         private val TAG = OcrRunnable::class.java.name
         const val ACTION_MODEL_READY = "ca.fuwafuwa.gaku.MODEL_READY"
+        private const val SIMILAR_KANJI_ASSET = "similar_kanji.txt"
 
         /**
          * ML Kit returns each column of vertical text as a line, ordered left to right, but manga

@@ -112,12 +112,21 @@
                         android:textSize="24sp"
                         android:textColor="@android:color/black" />
 
-                    <!-- Lookalike characters to swap in; filled in code -->
-                    <LinearLayout
-                        android:id="@+id/info_char_choices"
-                        android:orientation="horizontal"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content" />
+                    <!-- Lookalike characters to swap in, filled in code. Scrolls sideways when they don't
+                         fit, so Edit and Delete stay on screen. -->
+                    <HorizontalScrollView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:id="@+id/info_char_choices"
+                            android:orientation="horizontal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content" />
+
+                    </HorizontalScrollView>
 
                     <TextView
                         android:id="@+id/info_char_edit"
