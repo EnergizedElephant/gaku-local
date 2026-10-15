@@ -11,6 +11,8 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -260,10 +262,18 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
         })
 
         // 2. Iterate through hierarchy to collect symbols in the correct order
-        for (block in sortedBlocks) {
-            val lines = inReadingOrder(block.lines) { line ->
-                line.boundingBox?.let { intArrayOf(it.left, it.top, it.right, it.bottom) }
-            }
+        // ML Kit reads furigana as narrow lines (usually blocks of their own) beside the text they
+        // annotate, and sorting puts them in among it. Leave them out of the recognised text.
+        // Copy each block's lines once: ML Kit's lists hand out a new Line object on every access, and
+        // lines are matched by identity below
+        val lineBox = { line: Text.Line -> line.boundingBox?.let { intArrayOf(it.left, it.top, it.right, it.bottom) } }
+        val blockLines = sortedBlocks.map { it.lines.toList() }
+        val allLines = blockLines.flatten()
+        val furigana = Collections.newSetFromMap(IdentityHashMap<Text.Line, Boolean>())
+        findFurigana(allLines, lineBox).forEach { furigana.add(allLines[it]) }
+
+        for (linesOfBlock in blockLines) {
+            val lines = inReadingOrder(linesOfBlock.filterNot { it in furigana }, lineBox)
             for (line in lines) {
                 for (element in line.elements) {
                     for (symbol in element.symbols) {
@@ -348,6 +358,66 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
 
             // Right to left by horizontal centre
             return lines.indices.sortedByDescending { i -> boxes[i]?.let { it[0] + it[2] } ?: 0 }.map { lines[it] }
+        }
+
+        /**
+         * The indices of [lines] that look like furigana: a line at most [FURIGANA_MAX_RATIO] as thick
+         * as a neighbouring line of text, just beside it (right of a vertical column, above a horizontal
+         * line) and within its length.
+         * @param box a line's bounding box as left, top, right, bottom
+         */
+        internal fun <T> findFurigana(lines: List<T>, box: (T) -> IntArray?): Set<Int>
+        {
+            val boxes = lines.map(box)
+            val furigana = HashSet<Int>()
+
+            for ((i, small) in boxes.withIndex())
+            {
+                if (small == null) continue
+                for ((j, main) in boxes.withIndex())
+                {
+                    if (i == j || main == null) continue
+                    if (isVerticalFurigana(small, main) || isHorizontalFurigana(small, main))
+                    {
+                        furigana.add(i)
+                        break
+                    }
+                }
+            }
+
+            return furigana
+        }
+
+        private const val FURIGANA_MAX_RATIO = 0.65
+
+        private fun isVerticalFurigana(small: IntArray, main: IntArray): Boolean
+        {
+            val (sl, st, sr, sb) = small
+            val (ml, mt, mr, mb) = main
+            val mainWidth = mr - ml
+            // A column, read top to bottom, and the furigana far thinner than it
+            if (mb - mt <= mainWidth || sr - sl > mainWidth * FURIGANA_MAX_RATIO) return false
+
+            // Starts at most a third of the column's width inside its right edge, and no further out
+            // than one column width
+            val tolerance = mainWidth / 3
+            return sl >= mr - tolerance && sl - mr < mainWidth &&
+                    st >= mt - tolerance && sb <= mb + tolerance
+        }
+
+        private fun isHorizontalFurigana(small: IntArray, main: IntArray): Boolean
+        {
+            val (sl, st, sr, sb) = small
+            val (ml, mt, mr, mb) = main
+            val mainHeight = mb - mt
+            // A line, read left to right, and the furigana far shorter than it
+            if (mr - ml <= mainHeight || sb - st > mainHeight * FURIGANA_MAX_RATIO) return false
+
+            // Ends at most a third of the line's height below its top edge, and no further out than
+            // one line height
+            val tolerance = mainHeight / 3
+            return sb <= mt + tolerance && mt - sb < mainHeight &&
+                    sl >= ml - tolerance && sr <= mr + tolerance
         }
     }
 }
