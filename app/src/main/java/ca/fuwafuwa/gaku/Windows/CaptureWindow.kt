@@ -208,16 +208,41 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
         params.x = realDisplaySize.x / 2 - params.width / 2
         params.y = realDisplaySize.y / 4 - params.height / 2
         params.alpha = 0.8F
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+        {
+            // Lay out against the whole display so params.x/y are screen coordinates (see getBoxOnScreen)
+            params.fitInsetsTypes = 0
+            params.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
         return params
+    }
+
+    /**
+     * The capture box in screen (= full-screen capture) coordinates. getLocationOnScreen() can't be
+     * trusted for a moved overlay: on Android 15 it kept reporting a stale x after the box was
+     * dragged, so on R+ (where the window ignores insets) use the LayoutParams position instead.
+     */
+    private fun getBoxOnScreen(): BoxParams
+    {
+        val pos = IntArray(2)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+        {
+            mWindowBox.getLocationInWindow(pos)
+            pos[0] += params.x
+            pos[1] += params.y
+        }
+        else
+        {
+            mWindowBox.getLocationOnScreen(pos)
+        }
+        return BoxParams(pos[0], pos[1], params.width, params.height)
     }
 
     // FIX: Refactored to avoid accessing Views on background thread
     private fun setCroppedScreenshot()
     {
         // 1. Calculate BoxParams on the UI Thread
-        val viewPos = IntArray(2)
-        mWindowBox.getLocationOnScreen(viewPos)
-        val box = BoxParams(viewPos[0], viewPos[1], params.width, params.height)
+        val box = getBoxOnScreen()
 
         val thread = Thread(Runnable {
             
