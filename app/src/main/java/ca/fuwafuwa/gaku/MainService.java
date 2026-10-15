@@ -110,19 +110,22 @@ public class MainService extends Service implements Stoppable {
     }
 
     private class MediaProjectionStopCallback extends MediaProjection.Callback {
+        /**
+         * Only called when something else stopped the projection (e.g. the status bar's "stop sharing"
+         * chip): {@link #releaseProjection()} unregisters this before stopping it itself. A stopped
+         * projection can't be restarted without asking for consent again, so shut Gaku down; relaunching
+         * the app asks again.
+         */
         @Override
         public void onStop() {
-            Log.d(TAG, "Stopping projection");
+            Log.d(TAG, "Projection stopped externally");
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
                     if (MediaProjectionStopCallback.this == mMediaProjectionStopCallback) {
-                        if (mVirtualDisplay != null) {
-                            mVirtualDisplay.release();
-                        }
-                        mMediaProjection.unregisterCallback(MediaProjectionStopCallback.this);
-                        mMediaProjection = null;
-                        mImageReader.close();
+                        releaseProjection();
+                        Toast.makeText(MainService.this, "Screen capture stopped, closing Gaku", Toast.LENGTH_LONG).show();
+                        stopSelf();
                     }
                 }
             });
@@ -209,7 +212,7 @@ public class MainService extends Service implements Stoppable {
             mWindowCoordinator.getWindow(Constants.WINDOW_CAPTURE).reInit(new Window.ReinitOptions());
         } else {
             mWindowCoordinator.stopAllWindows();
-            stop();
+            pauseCapture();
         }
 
         // Set notification text
@@ -251,8 +254,32 @@ public class MainService extends Service implements Stoppable {
 
     @Override
     public void stop() {
+        releaseProjection();
+    }
+
+    private void releaseProjection() {
+        stopVirtualDisplay();
         if (mMediaProjection != null) {
+            mMediaProjection.unregisterCallback(mMediaProjectionStopCallback);
             mMediaProjection.stop();
+            mMediaProjection = null;
+        }
+    }
+
+    /**
+     * While hidden, stop rendering frames but keep the projection: on Android 14+ a consent can only be
+     * used once and a projection can only create one VirtualDisplay, so both must live as long as the
+     * service. {@link #createVirtualDisplay()} attaches a new surface when the capture window is shown.
+     */
+    private void pauseCapture() {
+        synchronized (mScreenshotLock) {
+            if (mVirtualDisplay != null) {
+                mVirtualDisplay.setSurface(null);
+            }
+            if (mImageReader != null) {
+                mImageReader.close();
+                mImageReader = null;
+            }
         }
     }
 
@@ -270,14 +297,28 @@ public class MainService extends Service implements Stoppable {
      * update the LayoutParams.
      */
     public void onCaptureWindowFinishedInitializing() {
-        if (mMediaProjection == null) {
-            Log.d(TAG, "mMediaProjection is null");
-            mMediaProjection = mMediaProjectionManager.getMediaProjection(mProjectionResultCode,
-                    mProjectionResultIntent);
-            mMediaProjectionStopCallback = new MediaProjectionStopCallback();
-            mMediaProjection.registerCallback(mMediaProjectionStopCallback, mHandler);
+        try {
+            if (mMediaProjection == null) {
+                Log.d(TAG, "mMediaProjection is null");
+                if (mProjectionResultIntent == null) {
+                    throw new SecurityException("No unused screen capture consent");
+                }
+                mMediaProjection = mMediaProjectionManager.getMediaProjection(mProjectionResultCode,
+                        mProjectionResultIntent);
+                // A consent can only be used once on Android 14+
+                mProjectionResultIntent = null;
+                if (mMediaProjection == null) {
+                    throw new SecurityException("Screen capture consent was not granted");
+                }
+                mMediaProjectionStopCallback = new MediaProjectionStopCallback();
+                mMediaProjection.registerCallback(mMediaProjectionStopCallback, mHandler);
+            }
+            createVirtualDisplay();
+        } catch (SecurityException | IllegalStateException e) {
+            Log.e(TAG, "Unable to start screen capture", e);
+            Toast.makeText(this, "Screen capture unavailable, relaunch Gaku to allow it", Toast.LENGTH_LONG).show();
+            stopSelf();
         }
-        createVirtualDisplay();
     }
 
     public Handler getHandler() {
