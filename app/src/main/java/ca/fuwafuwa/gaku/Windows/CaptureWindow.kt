@@ -368,13 +368,6 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
             return false
         }
 
-        val screenshotColor = screenshot.getPixel(box.x, box.y)
-
-        if (readyColor != screenshotColor && isAcceptableAlternateReadyColor(screenshotColor))
-        {
-            return false
-        }
-
         for (x in box.x until box.x + box.width)
         {
             if (!isRGBWithinTolerance(readyColor, screenshot.getPixel(x, box.y)))
@@ -408,32 +401,6 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
         }
         
         return true
-    }
-
-    /**
-     * Looks like sometimes the screenshot just has a color that is 100% totally wrong. Let's just accept any red that's "red enough"
-     * @param screenshotColor
-     * @return
-     */
-    private fun isAcceptableAlternateReadyColor(screenshotColor: Int): Boolean
-    {
-        val R = screenshotColor shr 16 and 0xFF
-        val G = screenshotColor shr 8 and 0xFF
-        val B = screenshotColor and 0xFF
-
-        var isValid = true
-
-        if (G * 10 > R)
-        {
-            isValid = false
-        }
-
-        if (B * 10 > R)
-        {
-            isValid = false
-        }
-
-        return isValid
     }
 
     private fun isRGBWithinTolerance(color: Int, colorToCheck: Int): Boolean
