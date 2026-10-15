@@ -87,11 +87,12 @@ fun startGakuService(context: Context, i: Intent)
 fun setupGakuDatabasesAndFiles(context: Context)
 {
     try {
-        deleteScreenshotFolder(context)
+        // Left by earlier builds: saved screen captures, and the Tesseract data Gaku never used
+        deleteFilesFolder(context, SCREENSHOT_FOLDER_NAME)
+        deleteFilesFolder(context, "tessdata")
 
         val filesAndPaths = hashMapOf(
-                JMDICT_DATABASE_NAME to context.filesDir.absolutePath,
-                TESS_DATA_NAME to "${context.filesDir.absolutePath}/$TESS_FOLDER_NAME")
+                JMDICT_DATABASE_NAME to context.filesDir.absolutePath)
 
         if (shouldResetData(filesAndPaths))
         {
@@ -156,9 +157,9 @@ fun copyFilesIfNotExists(context: Context, filesAndPaths: Map<String, String>)
  * Captures are never written to disk any more, but earlier builds saved full-screen PNGs here
  * (and their cleanup never deleted anything), so purge whatever is left.
  */
-fun deleteScreenshotFolder(context: Context)
+fun deleteFilesFolder(context: Context, name: String)
 {
-    val dir = File(context.filesDir, SCREENSHOT_FOLDER_NAME)
+    val dir = File(context.filesDir, name)
     if (dir.exists() && !dir.deleteRecursively())
     {
         Log.w(TAG, "Unable to fully delete ${dir.absolutePath}")
