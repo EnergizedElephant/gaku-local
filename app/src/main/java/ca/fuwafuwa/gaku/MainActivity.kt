@@ -33,11 +33,6 @@ class MainActivity : AppCompatActivity()
     {
         super.onCreate(savedInstanceState)
 
-        if (isBeta())
-        {
-            startActivity(Intent(this, BetaActivity::class.java))
-        }
-
         mPrefs = getSharedPreferences(GAKU_PREF_FILE, Context.MODE_PRIVATE)
 
         if (isFirstLaunch())
@@ -211,7 +206,7 @@ class MainActivity : AppCompatActivity()
     private fun requestScreenCaptureConsent()
     {
         // The running service already holds a projection, and onStart also runs when coming back from
-        // another activity (e.g. BetaActivity), so only ask when nothing is pending or unused
+        // another activity (e.g. the overlay permission settings), so only ask when nothing is pending or unused
         if (MainService.IsRunning() || mScreenCaptureRequested || mStartGakuIntent != null)
         {
             return
@@ -244,12 +239,6 @@ class MainActivity : AppCompatActivity()
     private fun isFirstLaunch() : Boolean
     {
         return mPrefs.getBoolean(GAKU_PREF_FIRST_LAUNCH, true)
-    }
-
-    private fun isBeta() : Boolean
-    {
-        val CURRENT_PROD_VERSION = 73 // just hardcoded, change when a build is ready to be rolled out to prod
-        return BuildConfig.VERSION_CODE > CURRENT_PROD_VERSION
     }
 
     companion object

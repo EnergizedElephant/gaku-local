@@ -47,13 +47,6 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".BetaActivity"
-            android:label="Gaku Beta"
-            android:noHistory="false"
-            android:launchMode="standard"
-            android:screenOrientation="portrait">
-        </activity>
-
         <activity
             android:name=".TutorialActivity"
             android:label="Gaku Tutorial"
