@@ -113,8 +113,6 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     @Override
     public void performSearch(@NotNull ISquareChar squareChar)
     {
-        Log.d(TAG, squareChar.getChar());
-
         mKanjiGrid.unhighlightAll(squareChar);
         mSearcher.search(new SearchInfo(squareChar));
     }

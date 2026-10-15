@@ -32,7 +32,9 @@ public class MainServiceHandler extends Handler {
         } else if (message.obj instanceof OcrResult) {
             OcrResult result = (OcrResult) message.obj;
 
-            Log.d(TAG, result.toString());
+            // Timing only: never log the recognised text
+            Log.d(TAG, String.format("%s, %d chars, instant: %b", result.getMessage(), result.getText().length(),
+                    result.getDisplayData().getInstantMode()));
 
             if (result.getDisplayData().getInstantMode()) {
                 InstantKanjiWindow instantKanjiWindow = mWindowCoordinator
