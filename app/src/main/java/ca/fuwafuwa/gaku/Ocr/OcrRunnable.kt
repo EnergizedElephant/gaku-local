@@ -347,8 +347,11 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
         val words = lookUpWordsByReading(annotated.map { it.reading }.distinct())
         for (a in annotated) {
             val result = spellingsForFurigana(a.reading, a.chars.map { it.char }, a.following.map { it.char }, words)
-            for ((n, spelling) in result.spellings.withIndex()) {
-                val certainty = if (n == 0 && result.certain) ChoiceCertainty.CERTAIN else ChoiceCertainty.UNCERTAIN
+            // When one spelling wins, the others are only homophones (かんじ: 幹事, 完治, ...), not
+            // useful alternatives
+            val spellings = if (result.certain) result.spellings.take(1) else result.spellings
+            val certainty = if (result.certain) ChoiceCertainty.CERTAIN else ChoiceCertainty.UNCERTAIN
+            for (spelling in spellings) {
                 for ((i, c) in spelling.withIndex()) {
                     if (c != a.chars[i].char) a.chars[i].addChoice(c, certainty)
                 }
