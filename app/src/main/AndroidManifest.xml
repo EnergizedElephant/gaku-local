@@ -85,6 +85,15 @@
             android:name=".MainService"
             android:foregroundServiceType="mediaProjection"
             android:exported="false" />
+
+        <!-- Unregister ML Kit's telemetry (Clearcut) backend: events are dropped instead of queued for upload -->
+        <service
+            android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
+            android:exported="false">
+            <meta-data
+                android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
+                tools:node="remove" />
+        </service>
     </application>
 
 </manifest>
