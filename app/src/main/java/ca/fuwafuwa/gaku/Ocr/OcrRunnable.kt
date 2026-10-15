@@ -54,7 +54,8 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
             return
         }
 
-        val dummyBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        // ML Kit rejects images smaller than 32x32 without loading its model
+        val dummyBitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
         val image = InputImage.fromBitmap(dummyBitmap, 0)
 
         // Force non-null assertion (!!) is safe here because safeInitClient returned true
