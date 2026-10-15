@@ -107,7 +107,7 @@ class MainStartFragment : Fragment()
             override fun run()
             {
                 mainActivity.runOnUiThread {
-                    mainActivity.startGaku(this@MainStartFragment)
+                    mainActivity.refreshLoadingState(this@MainStartFragment)
                 }
             }
         }, 3000)

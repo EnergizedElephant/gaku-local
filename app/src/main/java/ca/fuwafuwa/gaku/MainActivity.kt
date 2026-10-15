@@ -10,7 +10,6 @@ import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.CountDownTimer
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
@@ -20,14 +19,11 @@ import ca.fuwafuwa.gaku.Dialogs.StarRatingDialogFragment
 
 class MainActivity : AppCompatActivity()
 {
-    private var mIsActivityVisible = false
     private var mShownRating = false
     private var mNotificationPermissionAsked = false
     private var mScreenCaptureRequested = false
 
     private lateinit var mPrefs : SharedPreferences
-    // Screen capture consent that hasn't been handed to MainService yet; each one can only be used once
-    private var mStartGakuIntent: Intent? = null
 
     override fun onCreate(savedInstanceState: Bundle?)
     {
@@ -78,14 +74,12 @@ class MainActivity : AppCompatActivity()
     {
         super.onPause()
         Log.d(TAG, "ACTIVITY INVISIBLE")
-        mIsActivityVisible = false
     }
 
     override fun onResume()
     {
         super.onResume()
         Log.d(TAG, "ACTIVITY VISIBLE")
-        mIsActivityVisible = true
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?)
@@ -119,47 +113,25 @@ class MainActivity : AppCompatActivity()
                 return
             }
 
-            mStartGakuIntent = Intent(this, MainService::class.java)
+            // Start the service now, while Gaku is in the foreground. When the user shares a single app,
+            // Android switches to that app as soon as this returns, and a foreground service can't be
+            // started from the background. Each consent can only be used once.
+            startGakuService(this, Intent(this, MainService::class.java)
                     .putExtra(EXTRA_PROJECTION_RESULT_CODE, resultCode)
-                    .putExtra(EXTRA_PROJECTION_RESULT_INTENT, data)
+                    .putExtra(EXTRA_PROJECTION_RESULT_INTENT, data))
             return
         }
     }
 
-    fun startGaku(startFragment: MainStartFragment)
+    /**
+     * Called by the start screen a few seconds after it resumes, to replace its loading text once the
+     * service is running.
+     */
+    fun refreshLoadingState(startFragment: MainStartFragment)
     {
         if (MainService.IsRunning())
         {
-            return
-        }
-
-        if (!mIsActivityVisible)
-        {
-            return
-        }
-
-        val startGakuIntent = mStartGakuIntent
-        if (startGakuIntent != null)
-        {
-            mStartGakuIntent = null
-            startFragment.onGakuLoadStart()
-
-            val totalDuration = 2000
-            object : CountDownTimer(totalDuration.toLong(), 10)
-            {
-                override fun onFinish()
-                {
-                    startFragment.onGakuLoaded()
-                    startGakuService(this@MainActivity, startGakuIntent)
-                }
-
-                override fun onTick(millisUntilFinished: Long)
-                {
-                }
-            }.start()
-        }
-        else {
-            Toast.makeText(this, "Unable to start Gaku service", Toast.LENGTH_LONG).show()
+            startFragment.onGakuLoaded()
         }
     }
 
@@ -206,8 +178,8 @@ class MainActivity : AppCompatActivity()
     private fun requestScreenCaptureConsent()
     {
         // The running service already holds a projection, and onStart also runs when coming back from
-        // another activity (e.g. the overlay permission settings), so only ask when nothing is pending or unused
-        if (MainService.IsRunning() || mScreenCaptureRequested || mStartGakuIntent != null)
+        // another activity (e.g. the single-app picker), so only ask when no request is pending
+        if (MainService.IsRunning() || mScreenCaptureRequested)
         {
             return
         }
