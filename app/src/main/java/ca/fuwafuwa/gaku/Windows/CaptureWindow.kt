@@ -22,8 +22,6 @@ import ca.fuwafuwa.gaku.Prefs
 import ca.fuwafuwa.gaku.R
 import ca.fuwafuwa.gaku.Windows.Interfaces.WindowListener
 import ca.fuwafuwa.gaku.XmlParsers.CommonParser
-import java.io.FileOutputStream
-import java.io.IOException
 
 /**
  * Created by 0xbad1d3a5 on 4/13/2016.
@@ -328,11 +326,6 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
 
         if (screenshot == null || !screenshotReady)
         {
-            if (screenshot != null) {
-                val croppedBitmap = getCroppedBitmap(screenshot!!, box)
-                saveBitmap(screenshot!!, String.format("error_(%d,%d)_(%d,%d)", box.x, box.y, box.width, box.height))
-                saveBitmap(croppedBitmap, String.format("error_(%d,%d)_(%d,%d)", box.x, box.y, box.width, box.height))
-            }
             return null
         }
 
@@ -444,16 +437,6 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
                 box.y + borderSize,
                 width,
                 height)
-    }
-
-    @Throws(IOException::class)
-    private fun saveBitmap(bitmap: Bitmap, name: String)
-    {
-        val fs = String.format("%s/%s/%s_%d.png", context.filesDir.absolutePath, SCREENSHOT_FOLDER_NAME, name, System.nanoTime())
-        Log.d(TAG, fs)
-        FileOutputStream(fs).use { out ->
-             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
     }
 
     companion object

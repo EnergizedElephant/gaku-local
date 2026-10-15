@@ -102,6 +102,8 @@ fun startGakuService(context: Context, i: Intent)
 fun setupGakuDatabasesAndFiles(context: Context)
 {
     try {
+        deleteScreenshotFolder(context)
+
         val filesAndPaths = hashMapOf(
                 JMDICT_DATABASE_NAME to context.filesDir.absolutePath,
                 TESS_DATA_NAME to "${context.filesDir.absolutePath}/$TESS_FOLDER_NAME")
@@ -115,10 +117,6 @@ fun setupGakuDatabasesAndFiles(context: Context)
         }
 
         copyFilesIfNotExists(context, filesAndPaths)
-
-        var screenshotPath: String = context.filesDir.absolutePath + "/$SCREENSHOT_FOLDER_NAME"
-        createDirIfNotExists(screenshotPath)
-        deleteScreenshotsOlderThanOneDay(screenshotPath)
     }
     catch (e: Exception)
     {
@@ -169,28 +167,16 @@ fun copyFilesIfNotExists(context: Context, filesAndPaths: Map<String, String>)
     }
 }
 
-fun deleteScreenshotsOlderThanOneDay(path: String)
+/**
+ * Captures are never written to disk any more, but earlier builds saved full-screen PNGs here
+ * (and their cleanup never deleted anything), so purge whatever is left.
+ */
+fun deleteScreenshotFolder(context: Context)
 {
-    try {
-        var dir = File(path)
-        if (dir.exists())
-        {
-            Log.d(TAG, dir.absolutePath)
-            var listFileNames = dir.list()
-            var purgeTime = System.currentTimeMillis() - 1 * 24 * 60 * 60 * 1000
-            for (fileName in listFileNames)
-            {
-                val file = File(fileName)
-                if (file.isFile && file.lastModified() < purgeTime)
-                {
-                    file.delete()
-                }
-            }
-        }
-    }
-    catch (e: Exception)
+    val dir = File(context.filesDir, SCREENSHOT_FOLDER_NAME)
+    if (dir.exists() && !dir.deleteRecursively())
     {
-        Log.d(TAG, e.toString())
+        Log.w(TAG, "Unable to fully delete ${dir.absolutePath}")
     }
 }
 

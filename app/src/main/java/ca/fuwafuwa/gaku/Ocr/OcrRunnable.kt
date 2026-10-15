@@ -11,8 +11,6 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
-import java.io.FileNotFoundException
-import java.io.FileOutputStream
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -326,19 +324,6 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
 
     private fun sendToastToContext(message: String) {
         Message.obtain(mContext.handler, 0, message).sendToTarget()
-    }
-
-    @Throws(FileNotFoundException::class)
-    private fun saveBitmap(bitmap: Bitmap, name: String = "screen") {
-        try {
-            val fs = "${mContext.filesDir.absolutePath}/$SCREENSHOT_FOLDER_NAME/${name}_${System.nanoTime()}.png"
-            Log.d(TAG, fs)
-            FileOutputStream(fs).use {
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-            }
-        } catch(e: Exception) {
-            Log.e(TAG, "Failed to save bitmap", e)
-        }
     }
 
     companion object {

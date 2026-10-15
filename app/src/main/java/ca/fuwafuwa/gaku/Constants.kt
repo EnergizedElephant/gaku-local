@@ -7,7 +7,7 @@ package ca.fuwafuwa.gaku
 const val JMDICT_DATABASE_NAME = "DB_KakuDict-02-16-2019.db"
 const val TESS_FOLDER_NAME = "tessdata"
 const val TESS_DATA_NAME = "jpn.traineddata"
-const val SCREENSHOT_FOLDER_NAME = "screenshots"
+const val SCREENSHOT_FOLDER_NAME = "screenshots" // only purged at startup, never written
 
 const val DB_SPLIT_CHAR = "\ufffc"
 const val DB_JMDICT_NAME = "JMDICT"
