@@ -261,7 +261,10 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
 
         // 2. Iterate through hierarchy to collect symbols in the correct order
         for (block in sortedBlocks) {
-            for (line in block.lines) {
+            val lines = inReadingOrder(block.lines) { line ->
+                line.boundingBox?.let { intArrayOf(it.left, it.top, it.right, it.bottom) }
+            }
+            for (line in lines) {
                 for (element in line.elements) {
                     for (symbol in element.symbols) {
                         
@@ -329,6 +332,23 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
     companion object {
         private val TAG = OcrRunnable::class.java.name
         const val ACTION_MODEL_READY = "ca.fuwafuwa.gaku.MODEL_READY"
+
+        /**
+         * ML Kit returns each column of vertical text as a line, ordered left to right, but manga
+         * columns read right to left. A block counts as vertical when its lines are clearly taller
+         * than they are wide in total; otherwise (horizontal text, or too few characters to tell)
+         * ML Kit's order is kept.
+         * @param box a line's bounding box as left, top, right, bottom
+         */
+        internal fun <T> inReadingOrder(lines: List<T>, box: (T) -> IntArray?): List<T> {
+            val boxes = lines.map(box)
+            val totalHeight = boxes.sumOf { if (it == null) 0 else it[3] - it[1] }
+            val totalWidth = boxes.sumOf { if (it == null) 0 else it[2] - it[0] }
+            if (totalHeight * 2 <= totalWidth * 3) return lines
+
+            // Right to left by horizontal centre
+            return lines.indices.sortedByDescending { i -> boxes[i]?.let { it[0] + it[2] } ?: 0 }.map { lines[it] }
+        }
     }
 }
 
