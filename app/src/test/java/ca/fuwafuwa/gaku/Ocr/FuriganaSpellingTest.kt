@@ -65,6 +65,29 @@ class FuriganaSpellingTest
     }
 
     @Test
+    fun matchesInflectedOkurigana()
+    {
+        // 会おう with あ beside 会: the volitional of 会う (あう), not one of the words read あ
+        val deinflect = { reading: String -> if (reading == "あおう") listOf("あおう", "あう") else listOf(reading) }
+        val result = OcrRunnable.spellingsForFurigana("あ", chars("会"), chars("おう！"), listOf(
+                word("会う", "あう"), word("合う", "あう"), word("遭う", "あう"),
+                word("彼", "あ"), word("我", "あ")), deinflect)
+        assertEquals(chars("会"), result.spellings[0])
+        assertTrue(result.certain)
+    }
+
+    @Test
+    fun fixesAKanjiBeforeInflectedOkurigana()
+    {
+        // 食べた read as 良べた, with た beside it
+        val deinflect = { reading: String -> if (reading == "たべた") listOf("たべた", "たべる") else listOf(reading) }
+        val result = OcrRunnable.spellingsForFurigana("た", chars("良"), chars("べた"), listOf(
+                word("食べる", "たべる"), word("田", "た"), word("他", "た")), deinflect)
+        assertEquals(listOf(chars("食")), result.spellings)
+        assertTrue(result.certain)
+    }
+
+    @Test
     fun noWordFits()
     {
         val result = spell("きょう", "今目は", "", word("今日", "きょう"))

@@ -19,6 +19,7 @@ import java.util.concurrent.TimeoutException
 import ca.fuwafuwa.gaku.*
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.JmDatabaseHelper
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized
+import ca.fuwafuwa.gaku.Deinflictor.Deinflector
 import ca.fuwafuwa.gaku.Interfaces.Stoppable
 import ca.fuwafuwa.gaku.MainService
 import ca.fuwafuwa.gaku.Windows.CaptureWindow
@@ -31,6 +32,8 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
     private val mOcrLock = java.lang.Object()
     private val mSimilarChars = loadSimilarChars()
     private val mCommonMistakes = loadCommonMistakes()
+    // For furigana beside inflected words; the dictionary search has its own
+    private val mDeinflector by lazy { Deinflector(mContext) }
     private var mTextRecognizer: com.google.mlkit.vision.text.TextRecognizer? = null
     private var mThreadRunning = true
     private var mOcrParams: OcrParams? = null
@@ -346,7 +349,9 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
 
         val words = lookUpWordsByReading(annotated.map { it.reading }.distinct())
         for (a in annotated) {
-            val result = spellingsForFurigana(a.reading, a.chars.map { it.char }, a.following.map { it.char }, words)
+            val result = spellingsForFurigana(a.reading, a.chars.map { it.char }, a.following.map { it.char }, words) { reading ->
+                mDeinflector.getPotentialDeinflections(reading).map { it.word }
+            }
             // When one spelling wins, the others are only homophones (かんじ: 幹事, 完治, ...), not
             // useful alternatives
             val spellings = if (result.certain) result.spellings.take(1) else result.spellings
@@ -492,19 +497,27 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
          */
         internal class FuriganaSpellings(val spellings: List<List<String>>, val certain: Boolean)
 
+        /**
+         * @param deinflect dictionary forms of a reading, itself included (あおう → あおう, あう, ...)
+         */
         internal fun spellingsForFurigana(reading: String, span: List<String>, following: List<String>,
-                                         words: List<FuriganaWord>): FuriganaSpellings
+                                         words: List<FuriganaWord>,
+                                         deinflect: (String) -> List<String> = { listOf(it) }): FuriganaSpellings
         {
             val okurigana = following.takeWhile { it.length == 1 && LangUtils.IsHiragana(it[0]) }.take(4)
 
             // Longest okurigana first: 菜しい with むずか is 難しい (むずかしい), not a word read むずか
             for (k in okurigana.size downTo 0)
             {
-                val oku = okurigana.take(k).joinToString("")
-                val fits = words.filter { word ->
-                    if ((reading + oku) !in word.readings || !word.kanji.endsWith(oku)) return@filter false
-                    val chars = splitTextByChar(word.kanji)
-                    chars.size == span.size + k && chars.take(span.size).all { it.length == 1 && LangUtils.IsKanji(it[0]) }
+                // Inflected okurigana is matched by its dictionary form: 会おう with あ is 会う (あう)
+                val fits = deinflect(reading + okurigana.take(k).joinToString("")).distinct().flatMap { wordReading ->
+                    if (!wordReading.startsWith(reading)) return@flatMap emptyList<FuriganaWord>()
+                    val oku = wordReading.removePrefix(reading)
+                    words.filter { word ->
+                        if (wordReading !in word.readings || !word.kanji.endsWith(oku)) return@filter false
+                        val chars = splitTextByChar(word.kanji)
+                        chars.size == span.size + oku.length && chars.take(span.size).all { it.length == 1 && LangUtils.IsKanji(it[0]) }
+                    }
                 }
                 if (fits.isEmpty()) continue
 
