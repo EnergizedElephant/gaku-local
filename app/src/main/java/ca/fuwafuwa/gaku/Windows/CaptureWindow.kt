@@ -13,6 +13,7 @@ import android.view.WindowManager
 import android.view.animation.Animation
 import android.view.animation.AnimationUtils
 import android.widget.ImageView
+import android.widget.Toast
 import androidx.core.content.ContextCompat
 import ca.fuwafuwa.gaku.*
 import ca.fuwafuwa.gaku.Ocr.BoxParams
@@ -41,7 +42,11 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
     private var mInLongPress: Boolean = false
     private var mProcessingPreview: Boolean = false
     private var mProcessingOcr: Boolean = false
+    // A double-tap arrived while the first tap's capture was still running
+    private var mOcrAfterCapture: Boolean = false
     private var mScreenshotForOcr: ScreenshotForOcr? = null
+    // Why the last capture failed, shown when OCR is asked for
+    private var mCaptureProblem: String? = null
 
     private var mCommonParser: CommonParser? = null
 
@@ -100,7 +105,14 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
     override fun onDoubleTap(e: MotionEvent): Boolean
     {
         mLastDoubleTapTime = System.currentTimeMillis()
-        performOcr(false)
+        if (mProcessingPreview)
+        {
+            mOcrAfterCapture = true
+        }
+        else
+        {
+            performOcr(false)
+        }
         return true
     }
 
@@ -238,41 +250,76 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
         return BoxParams(pos[0], pos[1], params.width, params.height)
     }
 
-    // FIX: Refactored to avoid accessing Views on background thread
+    /**
+     * Captures what's under the box into mScreenshotForOcr, then runs OCR if it was asked for meanwhile
+     * (or instant mode applies). Only frames drawn after the box's current state are used, so a
+     * full-screen capture never contains the box's touch tint or an old position.
+     */
     private fun setCroppedScreenshot()
     {
-        // 1. Calculate BoxParams on the UI Thread
+        // Views and the service are only safe to use on the UI thread
         val box = getBoxOnScreen()
+        val service = context as MainService
 
-        val thread = Thread(Runnable {
-            
-            // 2. Pass the pre-calculated box to the generator
-            val ocrScreenshot = getOcrData(box)
+        afterBoxIsDrawn { sinceNanos ->
+            val problem = service.captureProblem
+            Thread {
+                val ocrScreenshot = if (problem == null) getOcrData(service, box, sinceNanos) else null
 
-            if (ocrScreenshot == null || ocrScreenshot.crop == null || ocrScreenshot.orig == null || ocrScreenshot.params == null)
-            {
-                mProcessingPreview = false
-                return@Runnable
-            }
+                service.handler.post {
+                    // The window was stopped (e.g. hidden) while capturing
+                    if (context == null) return@post
 
-            (context as MainService).handler.post {
-                mScreenshotForOcr = ocrScreenshot
+                    mScreenshotForOcr = ocrScreenshot
+                    mCaptureProblem = problem
+                    mProcessingPreview = false
 
-                mImageView.setImageBitmap(mScreenshotForOcr!!.crop)
-
-                if (mPrefs!!.instantModeSetting && System.currentTimeMillis() > mLastDoubleTapTime + mLastDoubleTapIgnoreDelay)
-                {
-                    val sizeForInstant = minSize * 3
-                    if (sizeForInstant >= mScreenshotForOcr!!.params!!.width || sizeForInstant >= mScreenshotForOcr!!.params!!.height)
+                    if (ocrScreenshot != null)
                     {
-                        performOcr(true)
+                        mImageView.setImageBitmap(ocrScreenshot.crop)
+                    }
+
+                    if (mOcrAfterCapture)
+                    {
+                        mOcrAfterCapture = false
+                        performOcr(false)
+                    }
+                    else if (ocrScreenshot != null && mPrefs!!.instantModeSetting && System.currentTimeMillis() > mLastDoubleTapTime + mLastDoubleTapIgnoreDelay)
+                    {
+                        val sizeForInstant = minSize * 3
+                        if (sizeForInstant >= box.width || sizeForInstant >= box.height)
+                        {
+                            performOcr(true)
+                        }
                     }
                 }
+            }.start()
+        }
+    }
 
-                mProcessingPreview = false
+    /**
+     * Runs [action] on the UI thread once the box's current state has been submitted for display, with
+     * the time that happened. Before Android 10, or if no frame gets drawn, it runs with the current time.
+     */
+    private fun afterBoxIsDrawn(action: (Long) -> Unit)
+    {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+        {
+            action(System.nanoTime())
+            return
+        }
+
+        var done = false
+        val runOnce = Runnable {
+            if (!done)
+            {
+                done = true
+                action(System.nanoTime())
             }
-        })
-        thread.start()
+        }
+        mWindowBox.viewTreeObserver.registerFrameCommitCallback(runOnce)
+        mWindowBox.invalidate()
+        (context as MainService).handler.postDelayed(runOnce, 200)
     }
 
     private fun setBorderStyle(e: MotionEvent)
@@ -301,6 +348,7 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
 
             if (mScreenshotForOcr == null)
             {
+                Toast.makeText(context, mCaptureProblem ?: "Couldn't capture the screen, try again", Toast.LENGTH_LONG).show()
                 mProcessingOcr = false
                 return
             }
@@ -314,106 +362,30 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
         }
     }
 
-    // FIX: Renamed from getter to normal function, accepts box params explicitly
-    @Throws(Exception::class)
-    private fun getOcrData(box: BoxParams): ScreenshotForOcr?
-    {
-        try
-        {
-            return getReadyScreenshot(box)
-        } catch (e: Exception)
-        {
-            e.printStackTrace()
-        }
-        return null
-    }
-
-    @Throws(Exception::class)
-    private fun getReadyScreenshot(box: BoxParams): ScreenshotForOcr?
+    /**
+     * Runs on a background thread: crops the box out of a frame drawn at or after [sinceNanos].
+     */
+    private fun getOcrData(service: MainService, box: BoxParams, sinceNanos: Long): ScreenshotForOcr?
     {
         Log.d(TAG, String.format("X:%d Y:%d (%dx%d)", box.x, box.y, box.width, box.height))
 
-        var screenshotReady = false
-        val startTime = System.currentTimeMillis()
-        var screenshot: Bitmap? = null
-
-        do
+        try
         {
-            val bitmap = (context as MainService).screenshotBitmap
-            if (bitmap == null) {
-                Thread.sleep(10)
-                continue
+            val screenshot = service.getScreenshotSince(sinceNanos) ?: return null
+
+            // The box can briefly be outside a frame captured before a rotation
+            if (box.x + box.width > screenshot.width || box.y + box.height > screenshot.height)
+            {
+                return null
             }
-            screenshot = bitmap
-            screenshotReady = checkScreenshotIsReady(screenshot!!, box)
 
-        } while (!screenshotReady && System.currentTimeMillis() < startTime + 2000)
-
-        if (screenshot == null || !screenshotReady)
+            return ScreenshotForOcr(getCroppedBitmap(screenshot, box), screenshot, box)
+        } catch (e: Exception)
         {
-            return null
+            Log.e(TAG, "Capture failed", e)
         }
-
-        val croppedBitmap = getCroppedBitmap(screenshot!!, box)
-
-        return ScreenshotForOcr(croppedBitmap, screenshot, box)
+        return null
     }
-
-    private fun checkScreenshotIsReady(screenshot: Bitmap, box: BoxParams): Boolean
-    {
-        val readyColor = ContextCompat.getColor(context, R.color.red_capture_window_ready)
-        
-        // Safety check to ensure box is within screenshot bounds (prevent crash if screen rotated/resized)
-        if (box.x + box.width > screenshot.width || box.y + box.height > screenshot.height) {
-            return false
-        }
-
-        for (x in box.x until box.x + box.width)
-        {
-            if (!isRGBWithinTolerance(readyColor, screenshot.getPixel(x, box.y)))
-            {
-                return false
-            }
-        }
-
-        for (x in box.x until box.x + box.width)
-        {
-            if (!isRGBWithinTolerance(readyColor, screenshot.getPixel(x, box.y + box.height - 1)))
-            {
-                return false
-            }
-        }
-
-        for (y in box.y until box.y + box.height)
-        {
-            if (!isRGBWithinTolerance(readyColor, screenshot.getPixel(box.x, y)))
-            {
-                return false
-            }
-        }
-
-        for (y in box.y until box.y + box.height)
-        {
-            if (!isRGBWithinTolerance(readyColor, screenshot.getPixel(box.x + box.width - 1, y)))
-            {
-                return false
-            }
-        }
-        
-        return true
-    }
-
-    private fun isRGBWithinTolerance(color: Int, colorToCheck: Int): Boolean
-    {
-        val redRatio = (colorToCheck shr 16 and 0xFF) / 3;
-        var isColorWithinTolerance: Boolean = ((colorToCheck and 0xFF) < redRatio)
-        isColorWithinTolerance = isColorWithinTolerance and ((colorToCheck shr 8 and 0xFF) < redRatio)
-        isColorWithinTolerance = isColorWithinTolerance and ((colorToCheck shr 16 and 0xFF) > 140)
-        // Log.d("RGB", "R: ${colorToCheck shr 16 and 0xFF} G: ${colorToCheck shr 8 and 0xFF}B: ${colorToCheck and 0xFF}")
-
-        return isColorWithinTolerance
-    }
-
 
 
     private fun getCroppedBitmap(screenshot: Bitmap, box: BoxParams): Bitmap

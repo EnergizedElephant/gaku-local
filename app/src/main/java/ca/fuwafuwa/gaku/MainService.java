@@ -109,7 +109,7 @@ public class MainService extends Service implements Stoppable {
         }
     }
 
-    private class MediaProjectionStopCallback extends MediaProjection.Callback {
+    private class ProjectionCallback extends MediaProjection.Callback {
         /**
          * Only called when something else stopped the projection (e.g. the status bar's "stop sharing"
          * chip): {@link #releaseProjection()} unregisters this before stopping it itself. A stopped
@@ -122,13 +122,32 @@ public class MainService extends Service implements Stoppable {
             mHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    if (MediaProjectionStopCallback.this == mMediaProjectionStopCallback) {
+                    if (ProjectionCallback.this == mProjectionCallback) {
                         releaseProjection();
                         Toast.makeText(MainService.this, "Screen capture stopped, closing Gaku", Toast.LENGTH_LONG).show();
                         stopSelf();
                     }
                 }
             });
+        }
+
+        /**
+         * Android 14+: the size of what's being captured, the whole screen or (in single-app mode) the
+         * shared app's window.
+         */
+        @Override
+        public void onCapturedContentResize(int width, int height) {
+            Log.d(TAG, String.format("Captured content size: %dx%d", width, height));
+            mCapturedContentSize = new Point(width, height);
+        }
+
+        /**
+         * Android 14+: in single-app mode, whether the shared app is on screen. The whole screen always is.
+         */
+        @Override
+        public void onCapturedContentVisibilityChanged(boolean isVisible) {
+            Log.d(TAG, "Captured content visible: " + isVisible);
+            mCapturedContentVisible = isVisible;
         }
     }
 
@@ -137,6 +156,11 @@ public class MainService extends Service implements Stoppable {
     private static final int VIRTUAL_DISPLAY_FLAGS = DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY
             | DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
     private static final int NOTIFICATION_ID = 1;
+    // How long to wait for a frame drawn after the caller's change before deciding the screen hasn't changed
+    private static final long NO_NEW_FRAME_WAIT_NS = 250_000_000L;
+    // After the first such frame, how long to keep taking newer ones, in case it was already being
+    // composed when the change landed
+    private static final long LATE_FRAME_WAIT_NS = 25_000_000L;
 
     private final Object mScreenshotLock = new Object();
 
@@ -150,6 +174,9 @@ public class MainService extends Service implements Stoppable {
     private MediaProjectionManager mMediaProjectionManager;
     private MediaProjection mMediaProjection;
     private ImageReader mImageReader;
+    // The newest frame taken from mImageReader. Kept open because the virtual display only renders when
+    // the captured content changes, so on a still screen this stays the current frame.
+    private Image mLatestImage;
     private Display mDisplay;
     private VirtualDisplay mVirtualDisplay;
     private MainServiceHandler mHandler;
@@ -157,7 +184,10 @@ public class MainService extends Service implements Stoppable {
     private int mRotation;
     private Point mRealDisplaySize = new Point();
 
-    private MediaProjectionStopCallback mMediaProjectionStopCallback;
+    private ProjectionCallback mProjectionCallback;
+    // Reported by ProjectionCallback on Android 14+; null until then
+    private volatile Point mCapturedContentSize;
+    private volatile boolean mCapturedContentVisible = true;
     private WindowCoordinator mWindowCoordinator = new WindowCoordinator(this);
 
     @Override
@@ -260,7 +290,7 @@ public class MainService extends Service implements Stoppable {
     private void releaseProjection() {
         stopVirtualDisplay();
         if (mMediaProjection != null) {
-            mMediaProjection.unregisterCallback(mMediaProjectionStopCallback);
+            mMediaProjection.unregisterCallback(mProjectionCallback);
             mMediaProjection.stop();
             mMediaProjection = null;
         }
@@ -276,6 +306,7 @@ public class MainService extends Service implements Stoppable {
             if (mVirtualDisplay != null) {
                 mVirtualDisplay.setSurface(null);
             }
+            closeLatestImage();
             if (mImageReader != null) {
                 mImageReader.close();
                 mImageReader = null;
@@ -310,8 +341,8 @@ public class MainService extends Service implements Stoppable {
                 if (mMediaProjection == null) {
                     throw new SecurityException("Screen capture consent was not granted");
                 }
-                mMediaProjectionStopCallback = new MediaProjectionStopCallback();
-                mMediaProjection.registerCallback(mMediaProjectionStopCallback, mHandler);
+                mProjectionCallback = new ProjectionCallback();
+                mMediaProjection.registerCallback(mProjectionCallback, mHandler);
             }
             createVirtualDisplay();
         } catch (SecurityException | IllegalStateException e) {
@@ -325,46 +356,80 @@ public class MainService extends Service implements Stoppable {
         return mHandler;
     }
 
-    public Bitmap getScreenshotBitmap() {
+    /**
+     * A screenshot showing the screen as it was at or after {@code sinceNanos} ({@link System#nanoTime()}),
+     * or null if nothing has been captured.
+     *
+     * The virtual display only renders a frame when the captured content changes. So this waits briefly
+     * for a frame rendered after {@code sinceNanos}; if none arrives, the screen hasn't changed and the
+     * newest frame is still current. That's the usual case in single-app mode, where Gaku's own windows
+     * aren't part of the captured content.
+     */
+    public Bitmap getScreenshotSince(long sinceNanos) {
         synchronized (mScreenshotLock) {
-            if (mImageReader == null) {
-                return null;
-            }
-
             try {
-                // Try to get the latest image
-                Image image = mImageReader.acquireLatestImage();
-                if (image == null) {
-                    long startTime = System.nanoTime();
-                    while (image == null && System.nanoTime() < startTime + 2000000000) {
-                        try {
-                            mScreenshotLock.wait(20);
-                        } catch (InterruptedException e) {
-                            return null;
+                long deadline = System.nanoTime() + NO_NEW_FRAME_WAIT_NS;
+                boolean gotNewFrame = false;
+                while (mImageReader != null) {
+                    Image image = mImageReader.acquireLatestImage();
+                    if (image != null) {
+                        closeLatestImage();
+                        mLatestImage = image;
+                        if (!gotNewFrame && image.getTimestamp() >= sinceNanos) {
+                            gotNewFrame = true;
+                            deadline = System.nanoTime() + LATE_FRAME_WAIT_NS;
                         }
-                        if (mImageReader == null)
-                            return null;
-                        image = mImageReader.acquireLatestImage();
                     }
+                    if (System.nanoTime() >= deadline) {
+                        break;
+                    }
+                    // Releases the lock, so pauseCapture() etc. can close the reader meanwhile
+                    mScreenshotLock.wait(5);
                 }
 
-                if (image != null) {
-                    try {
-                        return convertImageToBitmap(image);
-                    } finally {
-                        image.close();
-                    }
+                if (mLatestImage == null) {
+                    return null;
                 }
+                Log.d(TAG, String.format("Screenshot from %s frame, %.1f ms after the request",
+                        gotNewFrame ? "a new" : "the last", (mLatestImage.getTimestamp() - sinceNanos) / 1e6));
+                return convertImageToBitmap(mLatestImage);
+            } catch (InterruptedException e) {
+                return null;
             } catch (Exception e) {
                 Log.e(TAG, "Error getting screenshot", e);
+                return null;
             }
-            return null;
+        }
+    }
+
+    /**
+     * Why the captured frames can't show what's under the capture box right now, or null if they can.
+     * Single-app capture records only the shared app's window, scaled into the virtual display, so screen
+     * coordinates only line up while that app fills the screen.
+     */
+    public String getCaptureProblem() {
+        if (!mCapturedContentVisible) {
+            return "The app Gaku is sharing isn't on screen. Switch back to it, or relaunch Gaku to share this one";
+        }
+        Point size = mCapturedContentSize;
+        if (size != null && (size.x != mRealDisplaySize.x || size.y != mRealDisplaySize.y)) {
+            return "Gaku can only read a shared app while it's full screen";
+        }
+        return null;
+    }
+
+    private void closeLatestImage() {
+        if (mLatestImage != null) {
+            mLatestImage.close();
+            mLatestImage = null;
         }
     }
 
     private Bitmap convertImageToBitmap(Image image) {
         Image.Plane[] planes = image.getPlanes();
         java.nio.ByteBuffer buffer = planes[0].getBuffer();
+        // The same frame can be converted more than once, and copying advances the buffer's position
+        buffer.rewind();
         int pixelStride = planes[0].getPixelStride();
         int rowStride = planes[0].getRowStride();
         int rowPadding = rowStride - pixelStride * image.getWidth();
@@ -449,17 +514,22 @@ public class MainService extends Service implements Stoppable {
         // start capture reader
         Log.d(TAG, String.format("Starting Projection: %dx%d", mRealDisplaySize.x, mRealDisplaySize.y));
 
+        // One image is held as mLatestImage, and acquireLatestImage() needs two more to skip to the newest
+        final int maxImages = 3;
+
         synchronized (mScreenshotLock) {
             if (mVirtualDisplay == null) {
                 mImageReader = ImageReader.newInstance(mRealDisplaySize.x, mRealDisplaySize.y, PixelFormat.RGBA_8888,
-                        2);
+                        maxImages);
                 mVirtualDisplay = mMediaProjection.createVirtualDisplay(getClass().getName(), mRealDisplaySize.x,
                         mRealDisplaySize.y, mDensity, VIRTUAL_DISPLAY_FLAGS, mImageReader.getSurface(), null, mHandler);
             } else {
                 ImageReader newImageReader = ImageReader.newInstance(mRealDisplaySize.x, mRealDisplaySize.y,
-                        PixelFormat.RGBA_8888, 2);
+                        PixelFormat.RGBA_8888, maxImages);
                 mVirtualDisplay.resize(mRealDisplaySize.x, mRealDisplaySize.y, mDensity);
                 mVirtualDisplay.setSurface(newImageReader.getSurface());
+                // A frame from before a rotation no longer matches the screen
+                closeLatestImage();
                 if (mImageReader != null) {
                     mImageReader.close();
                 }
@@ -474,6 +544,7 @@ public class MainService extends Service implements Stoppable {
                 mVirtualDisplay.release();
                 mVirtualDisplay = null;
             }
+            closeLatestImage();
             if (mImageReader != null) {
                 mImageReader.close();
                 mImageReader = null;
