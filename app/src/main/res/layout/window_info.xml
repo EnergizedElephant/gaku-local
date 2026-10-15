@@ -76,6 +76,12 @@
                         style="@style/InfoButton"
                         android:text="Copy" />
 
+                    <!-- Hidden for text looked up from another app, which has no image -->
+                    <TextView
+                        android:id="@+id/info_read_again"
+                        style="@style/InfoButton"
+                        android:text="Read again" />
+
                     <TextView
                         android:id="@+id/info_instant"
                         style="@style/InfoButton"

@@ -38,6 +38,7 @@ import ca.fuwafuwa.gaku.Search.JmSearchResult;
 import ca.fuwafuwa.gaku.Search.SearchInfo;
 import ca.fuwafuwa.gaku.Search.Searcher;
 import ca.fuwafuwa.gaku.Windows.Data.DisplayData;
+import ca.fuwafuwa.gaku.Windows.Data.DisplayDataOcr;
 import ca.fuwafuwa.gaku.Windows.Data.ISquareChar;
 import ca.fuwafuwa.gaku.Windows.Data.SquareChar;
 import ca.fuwafuwa.gaku.Windows.Data.SquareCharOcr;
@@ -74,6 +75,9 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     private ArrayList<ISquareChar> mSearchedChars = new ArrayList<>();
     // The character last tapped in the grid, which the character buttons act on
     private ISquareChar mSelectedChar;
+    private View mReadAgainButton;
+    // The OCR result shown, for Read again; null for text looked up from another app
+    private DisplayDataOcr mOcrResult;
 
     public InformationWindow(Context context, WindowCoordinator windowCoordinator)
     {
@@ -99,6 +103,12 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         mNextButton.setOnClickListener(v -> scroll(true));
         window.findViewById(R.id.info_translate).setOnClickListener(v -> sendToTranslate());
         window.findViewById(R.id.info_copy).setOnClickListener(v -> copyText());
+        mReadAgainButton = window.findViewById(R.id.info_read_again);
+        mReadAgainButton.setOnClickListener(v -> {
+            if (mOcrResult == null) return;
+            CaptureWindow captureWindow = windowCoordinator.getWindowOfType(Constants.WINDOW_CAPTURE);
+            captureWindow.readAgain(mOcrResult);
+        });
         mInstantButton.setOnClickListener(v -> toggleInstantMode());
         window.findViewById(R.id.info_close).setOnClickListener(v -> hide());
         window.findViewById(R.id.info_char_edit).setOnClickListener(v -> {
@@ -126,10 +136,16 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
 
         mKanjiGrid.removeAllViews();
         mKanjiGrid.setText(displayData);
+
+        mOcrResult = displayData instanceof DisplayDataOcr ? (DisplayDataOcr) displayData : null;
+        mReadAgainButton.setVisibility(mOcrResult != null ? View.VISIBLE : View.GONE);
     }
 
     public void setResult(String textResult)
     {
+        mOcrResult = null;
+        mReadAgainButton.setVisibility(View.GONE);
+
         List<String> charList = GakuTools.splitTextByChar(textResult);
         List<ISquareChar> squareCharList = new ArrayList<>();
         DisplayData displayData = new DisplayData(squareCharList);

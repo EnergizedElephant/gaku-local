@@ -20,10 +20,21 @@ android {
     def versionPrefix = "1.3"
     defaultConfig {
         applicationId "ca.fuwafuwa.gaku"
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdk 34
         versionCode 78
         versionName "$versionPrefix.$versionCode"
+
+        // 64-bit ARM for devices, x86_64 for the emulator: each native library (ML Kit, ONNX Runtime)
+        // would otherwise ship for four ABIs
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    // Stored uncompressed so the manga-ocr model can be memory-mapped from the APK instead of copied
+    androidResources {
+        noCompress += ['onnx']
     }
 
     buildFeatures {
@@ -55,6 +66,8 @@ android {
 
 dependencies {
     implementation 'com.google.mlkit:text-recognition-japanese:16.0.1'
+    // Runs the manga-ocr model for "Read again" (tools/fetch_manga_ocr.sh), on the device only
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.30.0'
     implementation 'com.google.guava:guava:31.0.1-android'
     implementation 'com.google.code.gson:gson:2.8.9'
     implementation 'androidx.appcompat:appcompat:1.4.1'

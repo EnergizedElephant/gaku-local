@@ -22,6 +22,7 @@ import ca.fuwafuwa.gaku.Ocr.OcrParams
 import ca.fuwafuwa.gaku.Ocr.OcrRunnable
 import ca.fuwafuwa.gaku.Prefs
 import ca.fuwafuwa.gaku.R
+import ca.fuwafuwa.gaku.Windows.Data.DisplayDataOcr
 import ca.fuwafuwa.gaku.Windows.Interfaces.WindowListener
 import ca.fuwafuwa.gaku.XmlParsers.CommonParser
 
@@ -361,6 +362,22 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
         {
             e.printStackTrace()
         }
+    }
+
+    /**
+     * Reads the crop behind [displayData] again with manga-ocr (the results window's Read again).
+     */
+    fun readAgain(displayData: DisplayDataOcr)
+    {
+        if (mProcessingOcr || !mOcr.isReadyForOcr)
+        {
+            Toast.makeText(context, "Still reading, try again in a moment", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        mProcessingOcr = true
+        val box = displayData.boxParams
+        mOcr.runTess(OcrParams(displayData.bitmap, displayData.bitmap, box, box.x, box.y, false, mangaOcr = true))
     }
 
     /**
