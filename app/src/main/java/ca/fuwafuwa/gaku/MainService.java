@@ -224,6 +224,7 @@ public class MainService extends Service implements Stoppable {
         // Set notification text
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.notify(NOTIFICATION_ID, getNotification());
+        ShowHideTileService.requestUpdate(this);
 
         return START_NOT_STICKY;
     }
@@ -253,6 +254,7 @@ public class MainService extends Service implements Stoppable {
         mWindowCoordinator.stopAllWindows();
         mWindowCoordinator = null;
         isGakuRunning = false;
+        ShowHideTileService.requestUpdate(this);
 
         Log.d(TAG, String.format("MAINSERVICE: %s DESTROYED", System.identityHashCode(this)));
         super.onDestroy();

@@ -77,6 +77,18 @@
             android:foregroundServiceType="mediaProjection"
             android:exported="false" />
 
+        <!-- Exported so System UI can bind it; only holders of BIND_QUICK_SETTINGS_TILE (the system) can -->
+        <service
+            android:name=".ShowHideTileService"
+            android:exported="true"
+            android:icon="@drawable/gaku_notification_icon"
+            android:label="Gaku"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Unregister ML Kit's telemetry (Clearcut) backend: events are dropped instead of queued for upload -->
         <service
             android:name="com.google.android.datatransport.runtime.backends.TransportBackendDiscovery"
