@@ -28,11 +28,108 @@
                 android:layout_height="match_parent"
                 android:layout_margin="10dp">
 
-                <ca.fuwafuwa.gaku.Windows.Views.KanjiGridView
-                    android:id="@+id/kanji_grid"
+                <!-- The arrows are INVISIBLE rather than GONE when not needed, so the grid's width (and
+                     so how many characters fit) doesn't depend on them -->
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <TextView
+                        android:id="@+id/info_prev"
+                        style="@style/InfoButton"
+                        android:layout_marginEnd="0dp"
+                        android:visibility="invisible"
+                        android:text="‹" />
+
+                    <ca.fuwafuwa.gaku.Windows.Views.KanjiGridView
+                        android:id="@+id/kanji_grid"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
+                        android:layout_margin="5dp" />
+
+                    <TextView
+                        android:id="@+id/info_next"
+                        style="@style/InfoButton"
+                        android:layout_marginEnd="0dp"
+                        android:visibility="invisible"
+                        android:text="›" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_margin="5dp" />
+                    android:layout_margin="5dp">
+
+                    <TextView
+                        android:id="@+id/info_translate"
+                        style="@style/InfoButton"
+                        android:text="Translate" />
+
+                    <TextView
+                        android:id="@+id/info_copy"
+                        style="@style/InfoButton"
+                        android:text="Copy" />
+
+                    <TextView
+                        android:id="@+id/info_instant"
+                        style="@style/InfoButton"
+                        android:text="Instant: off" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/info_close"
+                        style="@style/InfoButton"
+                        android:layout_marginEnd="0dp"
+                        android:text="✕" />
+
+                </LinearLayout>
+
+                <!-- Actions for the character last tapped in the grid -->
+                <LinearLayout
+                    android:id="@+id/info_char_actions"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_margin="5dp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/info_char"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="12dp"
+                        android:textSize="24sp"
+                        android:textColor="@android:color/black" />
+
+                    <!-- Lookalike characters to swap in; filled in code -->
+                    <LinearLayout
+                        android:id="@+id/info_char_choices"
+                        android:orientation="horizontal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content" />
+
+                    <TextView
+                        android:id="@+id/info_char_edit"
+                        style="@style/InfoButton"
+                        android:text="Edit" />
+
+                    <TextView
+                        android:id="@+id/info_char_delete"
+                        style="@style/InfoButton"
+                        android:text="Delete" />
+
+                </LinearLayout>
 
                 <ScrollView
                     android:layout_width="match_parent"

@@ -26,6 +26,13 @@ class KanjiGridView : SquareGridView, IRecalculateKanjiViews
     var offset: Int = 0
         private set
 
+    // Whether there are characters before or after the ones shown. Only known once laid out.
+    val canScrollPrev: Boolean
+        get() = offset > 0
+
+    val canScrollNext: Boolean
+        get() = ::mDisplayData.isInitialized && maxSquares > 0 && offset + maxSquares < mDisplayData.count
+
     val kanjiViewList: List<KanjiCharacterView>
         get()
         {

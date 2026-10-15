@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A button added in code to the results window, e.g. a lookalike character to swap in -->
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/InfoButton"
+    android:textSize="20sp" />

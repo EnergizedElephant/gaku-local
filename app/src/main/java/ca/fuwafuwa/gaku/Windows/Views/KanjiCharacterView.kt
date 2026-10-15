@@ -148,29 +148,9 @@ class KanjiCharacterView : FrameLayout, GestureDetector.OnGestureListener, IReca
                 val choiceResult = mKanjiChoiceWindow.onSquareScrollEnd(e)
                 when (choiceResult.first)
                 {
-                    ChoiceResultType.SWAP ->
-                    {
-                        mKanjiTextView.text = choiceResult.second
-                        mSquareChar.text = choiceResult.second
-                        recalculateKanjiViews()
-                    }
-                    ChoiceResultType.EDIT ->
-                    {
-                        val window = getProperWindow<Window>()
-                        if (mSquareChar.displayData is DisplayDataOcr)
-                        {
-                            window.hide()
-                        }
-
-                        mEditWindow.setInfo(mSquareChar)
-                        mEditWindow.setInputDoneCallback(this)
-                        mEditWindow.show()
-                    }
-                    ChoiceResultType.DELETE ->
-                    {
-                        mSquareChar.text = ""
-                        recalculateKanjiViews()
-                    }
+                    ChoiceResultType.SWAP -> swap(choiceResult.second)
+                    ChoiceResultType.EDIT -> edit()
+                    ChoiceResultType.DELETE -> delete()
                     ChoiceResultType.NONE ->
                     {
                     }
@@ -179,6 +159,38 @@ class KanjiCharacterView : FrameLayout, GestureDetector.OnGestureListener, IReca
         }
 
         return true
+    }
+
+    /**
+     * Replaces this character with [choice], e.g. one of its lookalikes.
+     */
+    fun swap(choice: String)
+    {
+        mKanjiTextView.text = choice
+        mSquareChar.text = choice
+        recalculateKanjiViews()
+    }
+
+    /**
+     * Opens the edit window to type a replacement for this character.
+     */
+    fun edit()
+    {
+        val window = getProperWindow<Window>()
+        if (mSquareChar.displayData is DisplayDataOcr)
+        {
+            window.hide()
+        }
+
+        mEditWindow.setInfo(mSquareChar)
+        mEditWindow.setInputDoneCallback(this)
+        mEditWindow.show()
+    }
+
+    fun delete()
+    {
+        mSquareChar.text = ""
+        recalculateKanjiViews()
     }
 
     override fun recalculateKanjiViews()

@@ -2,20 +2,25 @@ package ca.fuwafuwa.gaku.Windows;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
+import android.content.ActivityNotFoundException;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.os.Build;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.TextSwitcher;
+import android.widget.TextView;
+import android.widget.Toast;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -27,6 +32,7 @@ import ca.fuwafuwa.gaku.Constants;
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized;
 import ca.fuwafuwa.gaku.GakuTools;
 import ca.fuwafuwa.gaku.LangUtils;
+import ca.fuwafuwa.gaku.MainService;
 import ca.fuwafuwa.gaku.R;
 import ca.fuwafuwa.gaku.Search.JmSearchResult;
 import ca.fuwafuwa.gaku.Search.SearchInfo;
@@ -34,9 +40,11 @@ import ca.fuwafuwa.gaku.Search.Searcher;
 import ca.fuwafuwa.gaku.Windows.Data.DisplayData;
 import ca.fuwafuwa.gaku.Windows.Data.ISquareChar;
 import ca.fuwafuwa.gaku.Windows.Data.SquareChar;
+import ca.fuwafuwa.gaku.Windows.Data.SquareCharOcr;
 import ca.fuwafuwa.gaku.Windows.Interfaces.ICopyText;
 import ca.fuwafuwa.gaku.Windows.Interfaces.IRecalculateKanjiViews;
 import ca.fuwafuwa.gaku.Windows.Interfaces.ISearchPerformer;
+import ca.fuwafuwa.gaku.Windows.Views.KanjiCharacterView;
 import ca.fuwafuwa.gaku.Windows.Views.KanjiGridView;
 
 /**
@@ -48,14 +56,24 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     private static final String TAG = InformationWindow.class.getName();
     private static final float FLICK_THRESHOLD = -0.05f;
 
+    private static final String GOOGLE_TRANSLATE_PACKAGE = "com.google.android.apps.translate";
+
     private GestureDetector mGestureDetector;
     private float mMaxFlingVelocity;
     private LinearLayout mInfoWindow;
     private KanjiGridView mKanjiGrid;
     private TextSwitcher mDictResults;
+    private View mPrevButton;
+    private View mNextButton;
+    private TextView mInstantButton;
+    private View mCharActions;
+    private TextView mCharText;
+    private LinearLayout mCharChoices;
     private Searcher mSearcher;
     private boolean mTextOnlyLookup;
     private ArrayList<ISquareChar> mSearchedChars = new ArrayList<>();
+    // The character last tapped in the grid, which the character buttons act on
+    private ISquareChar mSelectedChar;
 
     public InformationWindow(Context context, WindowCoordinator windowCoordinator)
     {
@@ -66,8 +84,31 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         mInfoWindow = window.findViewById(R.id.info_window);
         mKanjiGrid = window.findViewById(R.id.kanji_grid);
         mDictResults = window.findViewById(R.id.dict_results);
+        mPrevButton = window.findViewById(R.id.info_prev);
+        mNextButton = window.findViewById(R.id.info_next);
+        mInstantButton = window.findViewById(R.id.info_instant);
+        mCharActions = window.findViewById(R.id.info_char_actions);
+        mCharText = window.findViewById(R.id.info_char);
+        mCharChoices = window.findViewById(R.id.info_char_choices);
 
         mKanjiGrid.setDependencies(windowCoordinator, this);
+        // The grid only knows how many characters fit once it has been laid out
+        mKanjiGrid.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> updateScrollButtons());
+
+        mPrevButton.setOnClickListener(v -> scroll(false));
+        mNextButton.setOnClickListener(v -> scroll(true));
+        window.findViewById(R.id.info_translate).setOnClickListener(v -> sendToTranslate());
+        window.findViewById(R.id.info_copy).setOnClickListener(v -> copyText());
+        mInstantButton.setOnClickListener(v -> toggleInstantMode());
+        window.findViewById(R.id.info_close).setOnClickListener(v -> hide());
+        window.findViewById(R.id.info_char_edit).setOnClickListener(v -> {
+            KanjiCharacterView view = getSelectedView();
+            if (view != null) view.edit();
+        });
+        window.findViewById(R.id.info_char_delete).setOnClickListener(v -> {
+            KanjiCharacterView view = getSelectedView();
+            if (view != null) view.delete();
+        });
 
         try {
             mSearcher = new Searcher(context);
@@ -115,6 +156,128 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     {
         mKanjiGrid.unhighlightAll(squareChar);
         mSearcher.search(new SearchInfo(squareChar));
+        setSelectedChar(squareChar);
+    }
+
+    /**
+     * Opens Google Translate's pop-up with the recognised text. Gaku itself has no network access;
+     * Translate only gets the text when this button is pressed.
+     */
+    private void sendToTranslate()
+    {
+        String text = mKanjiGrid.getText();
+        Intent[] intents = {
+            // The pop-up Translate shows for "Translate" in a text selection menu
+            new Intent(Intent.ACTION_PROCESS_TEXT)
+                    .putExtra(Intent.EXTRA_PROCESS_TEXT, text)
+                    .putExtra(Intent.EXTRA_PROCESS_TEXT_READONLY, true),
+            // Older versions: the full app
+            new Intent(Intent.ACTION_SEND)
+                    .putExtra(Intent.EXTRA_TEXT, text)
+        };
+
+        for (Intent intent : intents)
+        {
+            intent.setType("text/plain")
+                    .setPackage(GOOGLE_TRANSLATE_PACKAGE)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try
+            {
+                context.startActivity(intent);
+                // This window covers the whole screen, so it would hide Translate
+                hide();
+                return;
+            }
+            catch (ActivityNotFoundException e)
+            {
+                Log.d(TAG, "Google Translate can't handle " + intent.getAction());
+            }
+        }
+
+        Toast.makeText(context, "Google Translate isn't installed", Toast.LENGTH_LONG).show();
+    }
+
+    /**
+     * Goes through the same receiver as the notification's button, which also updates the
+     * notification and the capture window's copy of the setting.
+     */
+    private void toggleInstantMode()
+    {
+        boolean instant = !GakuTools.getPrefs(context).getInstantModeSetting();
+        context.sendBroadcast(new Intent(context, MainService.ToggleInstantModeMainService.class));
+        updateInstantButton(instant);
+    }
+
+    private void updateInstantButton(boolean instant)
+    {
+        mInstantButton.setText(instant ? "Instant: on" : "Instant: off");
+    }
+
+    private void scroll(boolean next)
+    {
+        if (next)
+        {
+            mKanjiGrid.scrollNext();
+        }
+        else
+        {
+            mKanjiGrid.scrollPrev();
+        }
+        // The selected character may have scrolled out of view
+        setSelectedChar(null);
+        updateScrollButtons();
+    }
+
+    private void updateScrollButtons()
+    {
+        mPrevButton.setVisibility(mKanjiGrid.getCanScrollPrev() ? View.VISIBLE : View.INVISIBLE);
+        mNextButton.setVisibility(mKanjiGrid.getCanScrollNext() ? View.VISIBLE : View.INVISIBLE);
+    }
+
+    /**
+     * Shows the buttons for [squareChar]: its lookalikes (if it came from OCR) to swap in, Edit and
+     * Delete. Null hides them.
+     */
+    private void setSelectedChar(ISquareChar squareChar)
+    {
+        mSelectedChar = squareChar;
+        mCharChoices.removeAllViews();
+
+        if (squareChar == null)
+        {
+            mCharActions.setVisibility(View.GONE);
+            return;
+        }
+
+        mCharText.setText(squareChar.getChar());
+
+        if (squareChar instanceof SquareCharOcr)
+        {
+            for (kotlin.Pair<String, Double> choice : ((SquareCharOcr) squareChar).getAllChoices())
+            {
+                final String c = choice.getFirst();
+                if (c.equals(squareChar.getChar())) continue;
+
+                TextView button = (TextView) LayoutInflater.from(context).inflate(R.layout.view_info_button, mCharChoices, false);
+                button.setText(c);
+                button.setOnClickListener(v -> {
+                    KanjiCharacterView view = getSelectedView();
+                    if (view != null) view.swap(c);
+                });
+                mCharChoices.addView(button);
+            }
+        }
+
+        mCharActions.setVisibility(View.VISIBLE);
+    }
+
+    private KanjiCharacterView getSelectedView()
+    {
+        for (KanjiCharacterView view : mKanjiGrid.getKanjiViewList())
+        {
+            if (view.getSquareChar() == mSelectedChar) return view;
+        }
+        return null;
     }
 
     /**
@@ -161,6 +324,9 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     public void show()
     {
         mDictResults.setText("");
+        // Shown again for new results, or after a character was swapped, edited or deleted
+        setSelectedChar(null);
+        updateInstantButton(GakuTools.getPrefs(context).getInstantModeSetting());
 
         window.setVisibility(View.VISIBLE);
         params.y = 0; // onScroll changes this value
@@ -236,11 +402,11 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
             int triggerAreaSize = getViewWidth() / 8;
             if (e.getX() > getViewWidth() - triggerAreaSize)
             {
-                mKanjiGrid.scrollNext();
+                scroll(true);
             }
             else if (e.getX() < triggerAreaSize)
             {
-                mKanjiGrid.scrollPrev();
+                scroll(false);
             }
         }
         else if (mInfoWindow.getX() < e.getX() && e.getX() < (mInfoWindow.getX() + mInfoWindow.getWidth()) &&
