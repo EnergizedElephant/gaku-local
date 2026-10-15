@@ -17,6 +17,8 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import ca.fuwafuwa.gaku.*
+import ca.fuwafuwa.gaku.Database.JmDictDatabase.JmDatabaseHelper
+import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized
 import ca.fuwafuwa.gaku.Interfaces.Stoppable
 import ca.fuwafuwa.gaku.MainService
 import ca.fuwafuwa.gaku.Windows.CaptureWindow
@@ -269,38 +271,114 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
         val lineBox = { line: Text.Line -> line.boundingBox?.let { intArrayOf(it.left, it.top, it.right, it.bottom) } }
         val blockLines = sortedBlocks.map { it.lines.toList() }
         val allLines = blockLines.flatten()
+        // (furigana, the line it annotates); a line can have several
+        val furiganaPairs = findFurigana(allLines, lineBox).map { (f, m) -> allLines[f] to allLines[m] }
         val furigana = Collections.newSetFromMap(IdentityHashMap<Text.Line, Boolean>())
-        findFurigana(allLines, lineBox).forEach { furigana.add(allLines[it]) }
+        furiganaPairs.forEach { furigana.add(it.first) }
+        // The characters recognised from each line, to match furigana to below
+        val lineChars = IdentityHashMap<Text.Line, MutableList<SquareCharOcr>>()
 
         for (linesOfBlock in blockLines) {
             val lines = inReadingOrder(linesOfBlock.filterNot { it in furigana }, lineBox)
             for (line in lines) {
+                val chars = lineChars.getOrPut(line) { ArrayList() }
                 for (element in line.elements) {
                     for (symbol in element.symbols) {
-                        
+
                         val choices = ArrayList<Pair<String, Double>>()
                         choices.add(Pair(symbol.text, symbol.confidence.toDouble()))
 
                         val pos = symbol.boundingBox ?: android.graphics.Rect()
 
                         // Calculate relative position to the original full-screen bitmap
-                        ocrChars.add(SquareCharOcr(
+                        val char = SquareCharOcr(
                             displayData,
                             choices,
                             intArrayOf(
-                                pos.left + ocrParams.offsetX, 
-                                pos.top + ocrParams.offsetY, 
-                                pos.right + ocrParams.offsetX, 
+                                pos.left + ocrParams.offsetX,
+                                pos.top + ocrParams.offsetY,
+                                pos.right + ocrParams.offsetX,
                                 pos.bottom + ocrParams.offsetY
                             )
-                        ))
+                        )
+                        ocrChars.add(char)
+                        chars.add(char)
                     }
                 }
             }
         }
 
+        correctFromFurigana(furiganaPairs, lineChars, lineBox, ocrParams)
         displayData.assignIndicies()
         return displayData
+    }
+
+    /**
+     * Uses furigana to fix the characters beside it. Looks up its reading (plus okurigana) in the
+     * dictionary; where one spelling clearly fits what was recognised, swaps it in, keeping the
+     * recognised character as an alternative. Otherwise the spellings that fit become alternatives.
+     * E.g. 今目 with きょう becomes 今日, and 菜しい with むずか becomes 難しい.
+     */
+    private fun correctFromFurigana(furiganaPairs: List<Pair<Text.Line, Text.Line>>,
+                                    lineChars: IdentityHashMap<Text.Line, MutableList<SquareCharOcr>>,
+                                    lineBox: (Text.Line) -> IntArray?, ocrParams: OcrParams) {
+        class Annotated(val reading: String, val chars: List<SquareCharOcr>, val following: List<SquareCharOcr>)
+
+        val annotated = furiganaPairs.mapNotNull { (furigana, line) ->
+            val chars = lineChars[line] ?: return@mapNotNull null
+            val f = lineBox(furigana) ?: return@mapNotNull null
+            val l = lineBox(line) ?: return@mapNotNull null
+            val reading = LangUtils.ConvertKanatanaToHiragana(
+                    furigana.text.filter { LangUtils.IsHiragana(it) || LangUtils.IsKatakana(it) })
+            if (reading.isEmpty()) return@mapNotNull null
+
+            // The characters whose centres lie alongside the furigana, give or take a quarter character
+            val vertical = l[3] - l[1] > l[2] - l[0]
+            val (start, end) = if (vertical) f[1] + ocrParams.offsetY to f[3] + ocrParams.offsetY
+                               else f[0] + ocrParams.offsetX to f[2] + ocrParams.offsetX
+            val slack = (if (vertical) l[2] - l[0] else l[3] - l[1]) / 4
+            val beside = chars.indices.filter { i ->
+                val p = chars[i].bitmapPos
+                val centre = if (vertical) (p[1] + p[3]) / 2 else (p[0] + p[2]) / 2
+                centre in (start - slack)..(end + slack)
+            }
+            if (beside.isEmpty()) return@mapNotNull null
+
+            Annotated(reading, chars.subList(beside.first(), beside.last() + 1), chars.subList(beside.last() + 1, chars.size))
+        }
+        if (annotated.isEmpty()) return
+
+        val words = lookUpWordsByReading(annotated.map { it.reading }.distinct())
+        for (a in annotated) {
+            val result = spellingsForFurigana(a.reading, a.chars.map { it.char }, a.following.map { it.char }, words)
+            for ((n, spelling) in result.spellings.withIndex()) {
+                val certainty = if (n == 0 && result.certain) ChoiceCertainty.CERTAIN else ChoiceCertainty.UNCERTAIN
+                for ((i, c) in spelling.withIndex()) {
+                    if (c != a.chars[i].char) a.chars[i].addChoice(c, certainty)
+                }
+            }
+        }
+    }
+
+    /**
+     * Dictionary words with a reading containing one of [readings]. One scan of the table for all
+     * of them; spellingsForFurigana() picks out the exact readings.
+     */
+    private fun lookUpWordsByReading(readings: List<String>): List<FuriganaWord> {
+        return try {
+            val startTime = System.currentTimeMillis()
+            val dao = JmDatabaseHelper.instance(mContext).getDbDao<EntryOptimized>(EntryOptimized::class.java)
+            // Readings are stored as "きょう, こんにち, ..."; match any that starts with one of ours
+            val sql = "SELECT kanji, readings, priorities FROM entryoptimized WHERE dictionary = ? AND (" +
+                    readings.joinToString(" OR ") { "readings LIKE ? OR readings LIKE ?" } + ")"
+            val args = arrayOf(DB_JMDICT_NAME) + readings.flatMap { listOf("$it%", "%, $it%") }
+            dao.queryRaw(sql, *args).use { results ->
+                results.map { FuriganaWord(it[0], it[1].split(", "), !it[2].isNullOrEmpty()) }
+            }.also { Log.d(TAG, "Furigana lookup: ${readings.size} readings, ${it.size} words, ${System.currentTimeMillis() - startTime} ms") }
+        } catch (e: Exception) {
+            Log.e(TAG, "Furigana lookup failed", e)
+            emptyList()
+        }
     }
 
     private fun loadSimilarChars(): Map<String, List<String>> {
@@ -375,15 +453,15 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
         }
 
         /**
-         * The indices of [lines] that look like furigana: a line at most [FURIGANA_MAX_RATIO] as thick
-         * as a neighbouring line of text, just beside it (right of a vertical column, above a horizontal
-         * line) and within its length.
+         * The lines that look like furigana, each mapped to the line it annotates (by index in [lines]):
+         * a line at most [FURIGANA_MAX_RATIO] as thick as a neighbouring line of text, just beside it
+         * (right of a vertical column, above a horizontal line) and within its length.
          * @param box a line's bounding box as left, top, right, bottom
          */
-        internal fun <T> findFurigana(lines: List<T>, box: (T) -> IntArray?): Set<Int>
+        internal fun <T> findFurigana(lines: List<T>, box: (T) -> IntArray?): Map<Int, Int>
         {
             val boxes = lines.map(box)
-            val furigana = HashSet<Int>()
+            val furigana = HashMap<Int, Int>()
 
             for ((i, small) in boxes.withIndex())
             {
@@ -393,7 +471,7 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
                     if (i == j || main == null) continue
                     if (isVerticalFurigana(small, main) || isHorizontalFurigana(small, main))
                     {
-                        furigana.add(i)
+                        furigana[i] = j
                         break
                     }
                 }
@@ -403,6 +481,51 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
         }
 
         private const val FURIGANA_MAX_RATIO = 0.65
+
+        /** A dictionary word that may be spelled under some furigana. */
+        internal class FuriganaWord(val kanji: String, val readings: List<String>, val common: Boolean)
+
+        /**
+         * Spellings for the characters furigana is written beside, from the dictionary words whose
+         * reading is the furigana plus any okurigana (the hiragana right after them), best first:
+         * most characters in common with what was recognised, then common words. [certain] is set when
+         * one spelling clearly wins.
+         */
+        internal class FuriganaSpellings(val spellings: List<List<String>>, val certain: Boolean)
+
+        internal fun spellingsForFurigana(reading: String, span: List<String>, following: List<String>,
+                                         words: List<FuriganaWord>): FuriganaSpellings
+        {
+            val okurigana = following.takeWhile { it.length == 1 && LangUtils.IsHiragana(it[0]) }.take(4)
+
+            // Longest okurigana first: 菜しい with むずか is 難しい (むずかしい), not a word read むずか
+            for (k in okurigana.size downTo 0)
+            {
+                val oku = okurigana.take(k).joinToString("")
+                val fits = words.filter { word ->
+                    if ((reading + oku) !in word.readings || !word.kanji.endsWith(oku)) return@filter false
+                    val chars = splitTextByChar(word.kanji)
+                    chars.size == span.size + k && chars.take(span.size).all { it.length == 1 && LangUtils.IsKanji(it[0]) }
+                }
+                if (fits.isEmpty()) continue
+
+                // (spelling, common word, characters in common with what was recognised)
+                val ranked = fits
+                        .map { word ->
+                            val spelling = splitTextByChar(word.kanji).take(span.size)
+                            Triple(spelling, word.common, spelling.indices.count { spelling[it] == span[it] })
+                        }
+                        .sortedWith(compareByDescending<Triple<List<String>, Boolean, Int>> { it.third }.thenByDescending { it.second })
+                        .distinctBy { it.first }
+
+                val best = ranked[0]
+                val certain = ranked.size == 1 || best.third > ranked[1].third ||
+                        (best.third == ranked[1].third && best.second && !ranked[1].second)
+                return FuriganaSpellings(ranked.map { it.first }, certain)
+            }
+
+            return FuriganaSpellings(emptyList(), false)
+        }
 
         private fun isVerticalFurigana(small: IntArray, main: IntArray): Boolean
         {

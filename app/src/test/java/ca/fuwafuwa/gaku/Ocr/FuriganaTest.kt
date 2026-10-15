@@ -7,7 +7,7 @@ class FuriganaTest
 {
     private class Line(val text: String, vararg val box: Int)
 
-    private fun furigana(vararg lines: Line) = OcrRunnable.findFurigana(lines.toList()) { it.box }.map { lines[it].text }.toSet()
+    private fun furigana(vararg lines: Line) = OcrRunnable.findFurigana(lines.toList()) { it.box }.keys.map { lines[it].text }.toSet()
 
     // Line boxes as ML Kit reported them for the furigana test page
 
