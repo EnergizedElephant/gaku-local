@@ -1,9 +1,11 @@
 package ca.fuwafuwa.gaku
 
+import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
@@ -20,9 +22,12 @@ class MainActivity : AppCompatActivity()
 {
     private var mIsActivityVisible = false
     private var mShownRating = false
+    private var mNotificationPermissionAsked = false
+    private var mScreenCaptureRequested = false
 
     private lateinit var mPrefs : SharedPreferences
-    private lateinit var mStartGakuIntent: Intent
+    // Screen capture consent that hasn't been handed to MainService yet; each one can only be used once
+    private var mStartGakuIntent: Intent? = null
 
     override fun onCreate(savedInstanceState: Bundle?)
     {
@@ -52,10 +57,26 @@ class MainActivity : AppCompatActivity()
     {
         super.onStart()
 
-        checkDrawOnTopPermissions()
-        checkScreenRecordPermissions()
+        // One system dialog at a time: overlay permission, then notifications, then screen capture
+        if (!checkDrawOnTopPermissions()) return
+        if (requestNotificationPermission()) return
+        requestScreenCaptureConsent()
 
         showRatingDialog()
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray)
+    {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == REQUEST_NOTIFICATIONS)
+        {
+            if (grantResults.firstOrNull() != PackageManager.PERMISSION_GRANTED)
+            {
+                Toast.makeText(this, "Without notifications, Gaku's Show/Hide and Shutdown controls aren't available", Toast.LENGTH_LONG).show()
+            }
+            requestScreenCaptureConsent()
+        }
     }
 
     override fun onPause()
@@ -94,11 +115,13 @@ class MainActivity : AppCompatActivity()
         if (requestCode == REQUEST_SCREENSHOT)
         {
             Log.d(TAG, "Recieved REQUEST_SCREENSHOT Intent")
+            mScreenCaptureRequested = false
 
             if (resultCode != Activity.RESULT_OK)
             {
                 Toast.makeText(this, "Check Permission: Record Screen\n$relaunchAppText", Toast.LENGTH_LONG).show()
                 finish()
+                return
             }
 
             mStartGakuIntent = Intent(this, MainService::class.java)
@@ -120,8 +143,10 @@ class MainActivity : AppCompatActivity()
             return
         }
 
-        if (::mStartGakuIntent.isInitialized)
+        val startGakuIntent = mStartGakuIntent
+        if (startGakuIntent != null)
         {
+            mStartGakuIntent = null
             startFragment.onGakuLoadStart()
 
             val totalDuration = 2000
@@ -130,7 +155,7 @@ class MainActivity : AppCompatActivity()
                 override fun onFinish()
                 {
                     startFragment.onGakuLoaded()
-                    startGakuService(this@MainActivity, mStartGakuIntent)
+                    startGakuService(this@MainActivity, startGakuIntent)
                 }
 
                 override fun onTick(millisUntilFinished: Long)
@@ -143,7 +168,10 @@ class MainActivity : AppCompatActivity()
         }
     }
 
-    private fun checkDrawOnTopPermissions()
+    /**
+     * @return true if Gaku can draw over other apps; otherwise the settings screen has been opened
+     */
+    private fun checkDrawOnTopPermissions(): Boolean
     {
         var checkPermissions = "Check \"Draw on Top of Other Apps\" permission"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
@@ -152,19 +180,47 @@ class MainActivity : AppCompatActivity()
             {
                 Log.d(TAG, "Sending ACTION_MANAGE_OVERLAY_PERMISSION Intent")
                 startActivityForResult(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")), REQUEST_DRAW_ON_TOP)
+                return false
             }
         }
         else
         {
             Toast.makeText(this, "Manually $checkPermissions\nGaku might not work on this device", Toast.LENGTH_LONG).show()
         }
+        return true
     }
 
-    private fun checkScreenRecordPermissions()
+    /**
+     * Android 13+ hides the service's notification, which holds the Show/Hide and Shutdown controls,
+     * unless this is granted. Gaku still works without it.
+     * @return true if the request is in flight; onRequestPermissionsResult carries on from there
+     */
+    private fun requestNotificationPermission(): Boolean
     {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || mNotificationPermissionAsked ||
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
+        {
+            return false
+        }
+
+        mNotificationPermissionAsked = true
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
+        return true
+    }
+
+    private fun requestScreenCaptureConsent()
+    {
+        // The running service already holds a projection, and onStart also runs when coming back from
+        // another activity (e.g. BetaActivity), so only ask when nothing is pending or unused
+        if (MainService.IsRunning() || mScreenCaptureRequested || mStartGakuIntent != null)
+        {
+            return
+        }
+
         Log.d(TAG, "Sending REQUEST_SCREENSHOT Intent")
-        val mediaProjectionManager: MediaProjectionManager? = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        startActivityForResult(mediaProjectionManager!!.createScreenCaptureIntent(), REQUEST_SCREENSHOT)
+        mScreenCaptureRequested = true
+        val mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), REQUEST_SCREENSHOT)
     }
 
     private fun showRatingDialog()
