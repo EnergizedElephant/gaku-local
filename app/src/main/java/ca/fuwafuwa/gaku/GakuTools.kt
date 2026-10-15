@@ -19,20 +19,7 @@ import java.util.ArrayList
 private const val TAG = "GakuTools"
 private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().excludeFieldsWithoutExposeAnnotation().create()
 
-enum class TextDirection(val value: Int) {
-    AUTO(0),
-    HORIZONTAL(1),
-    VERTICAL(2);
-
-    companion object {
-        private val values = values();
-        fun getByValue(value: Int) = values.firstOrNull { it.value == value }
-    }
-}
-
-data class Prefs(val textDirectionSetting: TextDirection,
-                 val imageFilterSetting: Boolean,
-                 val instantModeSetting: Boolean,
+data class Prefs(val instantModeSetting: Boolean,
                  val showHideSetting: Boolean);
 
 // NOTE: The defValue here should match the defValue of the BroadcastReceivers, otherwise
@@ -42,8 +29,6 @@ fun getPrefs(context: Context): Prefs
     val prefs = context.getSharedPreferences(GAKU_PREF_FILE, Context.MODE_PRIVATE)
 
     return Prefs(
-            TextDirection.valueOf(prefs.getString(GAKU_PREF_TEXT_DIRECTION, TextDirection.AUTO.toString()).toString()),
-            prefs.getBoolean(GAKU_PREF_IMAGE_FILTER, true),
             prefs.getBoolean(GAKU_PREF_INSTANT_MODE, true),
             prefs.getBoolean(GAKU_PREF_SHOW_HIDE, true))
 }

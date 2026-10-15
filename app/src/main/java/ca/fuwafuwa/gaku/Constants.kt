@@ -16,8 +16,6 @@ const val DB_ENAMEDICT_NAME = "ENAMEDICT"
 
 const val GAKU_PREF_FILE = "ca.fuwafuwa.gaku"
 const val GAKU_PREF_SHOW_HIDE = "ShowHide"
-const val GAKU_PREF_IMAGE_FILTER = "ImageFilter"
-const val GAKU_PREF_TEXT_DIRECTION = "TextDirection"
 const val GAKU_PREF_INSTANT_MODE = "InstantMode"
 const val GAKU_PREF_FIRST_LAUNCH = "FirstLaunch"
 const val GAKU_PREF_TIMES_LAUNCHED = "TimesLaunched"
@@ -38,8 +36,6 @@ const val GAKU_CHANNEL_NAME = "Show Gaku Notification"
 
 const val REQUEST_SCREENSHOT = 100
 const val REQUEST_DRAW_ON_TOP = 200
-const val REQUEST_SERVICE_TOGGLE_IMAGE_PREVIEW = 300
-const val REQUEST_SERVICE_TOGGLE_PAGE_MODE = 400
 const val REQUEST_SERVICE_TOGGLE_INSTANT_MODE = 500
 const val REQUEST_SERVICE_SHUTDOWN = 600
 const val REQUEST_SERVICE_TOGGLE_SHOW_HIDE = 700

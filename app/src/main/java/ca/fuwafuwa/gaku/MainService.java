@@ -53,36 +53,12 @@ public class MainService extends Service implements Stoppable {
         }
     }
 
-    public static class ToggleImagePreviewMainService extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            SharedPreferences prefs = context.getSharedPreferences(Constants.GAKU_PREF_FILE, Context.MODE_PRIVATE);
-            boolean imagePreview = prefs.getBoolean(Constants.GAKU_PREF_IMAGE_FILTER, true);
-            prefs.edit().putBoolean(Constants.GAKU_PREF_IMAGE_FILTER, !imagePreview).apply();
-
-            GakuTools.startGakuService(context, new Intent(context, MainService.class));
-        }
-    }
-
     public static class ToggleShowHideMainService extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
             SharedPreferences prefs = context.getSharedPreferences(Constants.GAKU_PREF_FILE, Context.MODE_PRIVATE);
             boolean shown = prefs.getBoolean(Constants.GAKU_PREF_SHOW_HIDE, true);
             prefs.edit().putBoolean(Constants.GAKU_PREF_SHOW_HIDE, !shown).apply();
-
-            GakuTools.startGakuService(context, new Intent(context, MainService.class));
-        }
-    }
-
-    public static class TogglePageModeMainService extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            SharedPreferences prefs = context.getSharedPreferences(Constants.GAKU_PREF_FILE, Context.MODE_PRIVATE);
-            TextDirection textDirection = TextDirection
-                    .valueOf(prefs.getString(Constants.GAKU_PREF_TEXT_DIRECTION, TextDirection.AUTO.toString()));
-            textDirection = TextDirection.Companion.getByValue((textDirection.ordinal() + 1) % 3);
-            prefs.edit().putString(Constants.GAKU_PREF_TEXT_DIRECTION, textDirection.toString()).apply();
 
             GakuTools.startGakuService(context, new Intent(context, MainService.class));
         }
@@ -450,11 +426,6 @@ public class MainService extends Service implements Stoppable {
 
         PendingIntent toggleShowHide = PendingIntent.getBroadcast(this, Constants.REQUEST_SERVICE_TOGGLE_SHOW_HIDE,
                 new Intent(this, ToggleShowHideMainService.class), PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent toggleImagePreview = PendingIntent.getBroadcast(this,
-                Constants.REQUEST_SERVICE_TOGGLE_IMAGE_PREVIEW, new Intent(this, ToggleImagePreviewMainService.class),
-                PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent togglePageMode = PendingIntent.getBroadcast(this, Constants.REQUEST_SERVICE_TOGGLE_PAGE_MODE,
-                new Intent(this, TogglePageModeMainService.class), PendingIntent.FLAG_IMMUTABLE);
         PendingIntent toggleInstantMode = PendingIntent.getBroadcast(this,
                 Constants.REQUEST_SERVICE_TOGGLE_INSTANT_MODE, new Intent(this, ToggleInstantModeMainService.class),
                 PendingIntent.FLAG_IMMUTABLE);
@@ -463,29 +434,18 @@ public class MainService extends Service implements Stoppable {
 
         Prefs prefs = GakuTools.getPrefs(this);
 
-        String contentTitle = "Gaku";
-        switch (prefs.getTextDirectionSetting()) {
-            case AUTO:
-                contentTitle = "Gaku is determining text direction automatically";
-                break;
-            case VERTICAL:
-                contentTitle = "Gaku is reading text vertically";
-                break;
-            case HORIZONTAL:
-                contentTitle = "Gaku is reading text horizontally";
-                break;
-        }
-
+        // Tapping the notification also shows/hides Gaku, but the buttons say so
         Notification n;
         if (prefs.getShowHideSetting()) {
             n = new NotificationCompat.Builder(this, channelId)
                     .setSmallIcon(R.drawable.gaku_notification_icon)
-                    .setContentTitle(contentTitle)
-                    .setContentText(String.format("Instant mode %s, black and white filter %s",
-                            prefs.getInstantModeSetting() ? "on" : "off", prefs.getImageFilterSetting() ? "on" : "off"))
+                    .setContentTitle("Gaku is running")
+                    .setContentText(prefs.getInstantModeSetting()
+                            ? "Instant mode on: small boxes are read as soon as you let go"
+                            : "Instant mode off: double-tap the box to read it")
                     .setContentIntent(toggleShowHide)
-                    .addAction(0, "Instant Mode", toggleInstantMode)
-                    .addAction(0, "Image Filter", toggleImagePreview)
+                    .addAction(0, "Hide", toggleShowHide)
+                    .addAction(0, prefs.getInstantModeSetting() ? "Turn instant off" : "Turn instant on", toggleInstantMode)
                     .addAction(0, "Shutdown", closeMainService)
                     .build();
         } else {
@@ -493,6 +453,8 @@ public class MainService extends Service implements Stoppable {
                     .setSmallIcon(R.drawable.gaku_notification_icon)
                     .setContentTitle("Gaku is hidden and in power-saving mode")
                     .setContentIntent(toggleShowHide)
+                    .addAction(0, "Show", toggleShowHide)
+                    .addAction(0, "Shutdown", closeMainService)
                     .build();
         }
 
