@@ -45,8 +45,10 @@ android {
     buildTypes {
         release {
             debuggable false
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // Drops unused library code and every Log.d (see proguard-rules.pro)
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
             debuggable true
@@ -66,7 +68,7 @@ android {
 
 dependencies {
     implementation 'com.google.mlkit:text-recognition-japanese:16.0.1'
-    // Runs the manga-ocr model for "Read again" (tools/fetch_manga_ocr.sh), on the device only
+    // Runs the manga-ocr model, the default reader (tools/fetch_manga_ocr.sh), on the device only
     implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.30.0'
     implementation 'com.google.guava:guava:31.0.1-android'
     implementation 'com.google.code.gson:gson:2.8.9'
@@ -74,7 +76,6 @@ dependencies {
     implementation 'com.google.android.material:material:1.6.0'
     implementation 'com.j256.ormlite:ormlite-android:5.1'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.3'
-    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
     testImplementation 'junit:junit:4.13.2'
     // Only used by the tokenizer experiment in ExampleUnitTest
     testImplementation 'com.atilika.kuromoji:kuromoji-ipadic:0.9.0'
