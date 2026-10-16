@@ -75,8 +75,8 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     private ArrayList<ISquareChar> mSearchedChars = new ArrayList<>();
     // The character last tapped in the grid, which the character buttons act on
     private ISquareChar mSelectedChar;
-    private View mReadAgainButton;
-    // The OCR result shown, for Read again; null for text looked up from another app
+    private TextView mReadAgainButton;
+    // The OCR result shown, to read again with the other reader; null for text looked up from another app
     private DisplayDataOcr mOcrResult;
 
     public InformationWindow(Context context, WindowCoordinator windowCoordinator)
@@ -139,6 +139,10 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
 
         mOcrResult = displayData instanceof DisplayDataOcr ? (DisplayDataOcr) displayData : null;
         mReadAgainButton.setVisibility(mOcrResult != null ? View.VISIBLE : View.GONE);
+        if (mOcrResult != null)
+        {
+            mReadAgainButton.setText(mOcrResult.getReadWithMangaOcr() ? "Read with ML Kit" : "Read with manga-ocr");
+        }
     }
 
     public void setResult(String textResult)

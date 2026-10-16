@@ -76,11 +76,12 @@
                         style="@style/InfoButton"
                         android:text="Copy" />
 
-                    <!-- Hidden for text looked up from another app, which has no image -->
+                    <!-- Reads the same crop with the other reader; hidden for text looked up from
+                         another app, which has no image -->
                     <TextView
                         android:id="@+id/info_read_again"
                         style="@style/InfoButton"
-                        android:text="Read again" />
+                        android:text="Read with ML Kit" />
 
                     <TextView
                         android:id="@+id/info_instant"

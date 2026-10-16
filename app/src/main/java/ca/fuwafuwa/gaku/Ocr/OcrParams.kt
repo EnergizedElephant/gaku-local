@@ -8,12 +8,20 @@ data class OcrParams(val bitmap: Bitmap,
                      val offsetX: Int,
                      val offsetY: Int,
                      val instantMode: Boolean,
-                     // Read with manga-ocr instead of ML Kit ("Read again")
-                     val mangaOcr: Boolean = false)
+                     val engine: OcrEngine = OcrEngine.DEFAULT)
 {
     override fun toString() : String {
-        return "Box: $box InstantOCR: $instantMode Offset: ($offsetX, $offsetY) MangaOcr: $mangaOcr"
+        return "Box: $box InstantOCR: $instantMode Offset: ($offsetX, $offsetY) Engine: $engine"
     }
+}
+
+enum class OcrEngine
+{
+    // manga-ocr, or ML Kit if this build doesn't include its model
+    DEFAULT,
+    // The results window's button to read the same crop with the other one
+    MANGA_OCR,
+    ML_KIT
 }
 
 

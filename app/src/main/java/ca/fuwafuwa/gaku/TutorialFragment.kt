@@ -109,7 +109,7 @@ class TutorialFragment : Fragment()
     private fun getTextForSectionNumber(num: Int): String
     {
         when (num){
-            1 -> return "Drag the capture window to move it, and drag its bottom right corner to resize it (the resize area is inside the window). Double tap the window to read the text in it. Tap a character in the results to look it up."
+            1 -> return "Drag the capture window to move it, and drag its bottom right corner to resize it (the resize area is inside the window). Double tap the window to read the text in it with manga-ocr, a reader trained on manga. If the box covers several bubbles or unusual text, try Read with ML Kit in the results. Tap a character in the results to look it up."
             2 -> return "With instant mode on, a small capture window is read as soon as you let go of it, with no double tap. It's meant for single words, not sentences. Turn it on or off with the Instant button in the results, or from Gaku's notification."
             4 -> return "If Gaku misreads a character, tap it in the results. Lookalike characters appear below it: tap one to swap it in. Where the text has furigana, Gaku corrects the kanji beside it from the dictionary, and what it first read stays among the lookalikes. A quick swipe down on the character also shows them."
             5 -> return "If the right character isn't among the lookalikes, tap the character, then Edit, and type or handwrite it. Handwriting needs a handwriting keyboard, for example Gboard with Japanese handwriting. A quick swipe up and to the left on the character does the same."

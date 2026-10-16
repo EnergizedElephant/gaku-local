@@ -18,6 +18,7 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import ca.fuwafuwa.gaku.*
 import ca.fuwafuwa.gaku.Ocr.BoxParams
+import ca.fuwafuwa.gaku.Ocr.OcrEngine
 import ca.fuwafuwa.gaku.Ocr.OcrParams
 import ca.fuwafuwa.gaku.Ocr.OcrRunnable
 import ca.fuwafuwa.gaku.Prefs
@@ -365,7 +366,8 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
     }
 
     /**
-     * Reads the crop behind [displayData] again with manga-ocr (the results window's Read again).
+     * Reads the crop behind [displayData] again with the other reader: ML Kit if manga-ocr read it,
+     * or the other way round (the results window's button).
      */
     fun readAgain(displayData: DisplayDataOcr)
     {
@@ -377,7 +379,8 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
 
         mProcessingOcr = true
         val box = displayData.boxParams
-        mOcr.runTess(OcrParams(displayData.bitmap, displayData.bitmap, box, box.x, box.y, false, mangaOcr = true))
+        val engine = if (displayData.readWithMangaOcr) OcrEngine.ML_KIT else OcrEngine.MANGA_OCR
+        mOcr.runTess(OcrParams(displayData.bitmap, displayData.bitmap, box, box.x, box.y, false, engine))
     }
 
     /**

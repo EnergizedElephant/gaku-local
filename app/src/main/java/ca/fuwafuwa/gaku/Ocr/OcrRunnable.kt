@@ -35,8 +35,9 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
     // For furigana beside inflected words; the dictionary search has its own
     private val mDeinflector by lazy { Deinflector(mContext) }
     private var mTextRecognizer: com.google.mlkit.vision.text.TextRecognizer? = null
-    // Loaded on the OCR thread the first time "Read again" is used
+    // The default reader, loaded when the OCR thread starts; null if unavailable, with the reason
     private var mMangaOcr: MangaOcr? = null
+    private var mMangaOcrProblem: String? = null
     private var mThreadRunning = true
     private var mOcrParams: OcrParams? = null
     private var mIsReady = false
@@ -106,6 +107,9 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
             return
         }
 
+        // Before taking requests, so the first box doesn't wait for it; one sent meanwhile is read after
+        loadMangaOcr()
+
         while (mThreadRunning) {
             try {
                 synchronized(mOcrLock) {
@@ -126,7 +130,12 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
                         mCaptureWindow?.showLoadingAnimation()
 
                         try {
-                            val displayData = if (ocrParams.mangaOcr) {
+                            val useMangaOcr = when (ocrParams.engine) {
+                                OcrEngine.DEFAULT -> mMangaOcr != null
+                                OcrEngine.MANGA_OCR -> true
+                                OcrEngine.ML_KIT -> false
+                            }
+                            val displayData = if (useMangaOcr) {
                                 readWithMangaOcr(ocrParams)
                             } else {
                                 // 2. Prepare the InputImage
@@ -144,9 +153,6 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
                                 processDisplayData(displayData)
                                 val ocrTime = System.currentTimeMillis() - startTime
                                 sendOcrResultToContext(OcrResult(displayData, ocrTime))
-                                if (ocrParams.mangaOcr) {
-                                    sendToastToContext(String.format("Read with manga-ocr in %.1f s", ocrTime / 1000.0))
-                                }
                             } else {
                                 sendToastToContext("No Characters Recognized.")
                             }
@@ -182,21 +188,28 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
         mMangaOcr?.close()
     }
 
-    /**
-     * Reads the crop again with manga-ocr, loading the model on first use. Its alternatives for
-     * each character are the decoder's next likeliest characters. Null, after a toast saying why,
-     * if this build doesn't include the model.
-     */
-    private fun readWithMangaOcr(ocrParams: OcrParams): DisplayDataOcr? {
-        val model = mMangaOcr ?: try {
-            sendToastToContext("Loading the manga-ocr model...")
-            MangaOcr.load(mContext).also { mMangaOcr = it }
+    private fun loadMangaOcr() {
+        val startTime = System.currentTimeMillis()
+        mMangaOcr = try {
+            MangaOcr.load(mContext)
         } catch (e: java.io.FileNotFoundException) {
-            sendToastToContext("This build doesn't include the manga-ocr model (see tools/fetch_manga_ocr.sh)")
-            return null
+            mMangaOcrProblem = "This build doesn't include the manga-ocr model (see tools/fetch_manga_ocr.sh)"
+            null
         } catch (e: Exception) {
             Log.e(TAG, "Couldn't load manga-ocr", e)
-            sendToastToContext("Couldn't load the manga-ocr model: ${e.message}")
+            mMangaOcrProblem = "Couldn't load the manga-ocr model: ${e.message}"
+            null
+        }
+        Log.d(TAG, "manga-ocr ${if (mMangaOcr != null) "loaded" else "unavailable"} in ${System.currentTimeMillis() - startTime} ms")
+    }
+
+    /**
+     * Reads the crop with manga-ocr. Its alternatives for each character are the decoder's next
+     * likeliest characters. Null, after a toast saying why, if the model isn't loaded.
+     */
+    private fun readWithMangaOcr(ocrParams: OcrParams): DisplayDataOcr? {
+        val model = mMangaOcr ?: run {
+            sendToastToContext(mMangaOcrProblem ?: "The manga-ocr model isn't loaded")
             return null
         }
 
@@ -216,6 +229,7 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
             ocrChars.add(SquareCharOcr(displayData, candidates.toMutableList(), wholeCrop))
         }
         displayData.assignIndicies()
+        displayData.readWithMangaOcr = true
         return displayData
     }
 

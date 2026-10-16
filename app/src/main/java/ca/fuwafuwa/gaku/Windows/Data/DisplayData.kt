@@ -93,6 +93,8 @@ class DisplayDataOcr(val bitmap: Bitmap,
                      override var instantMode: Boolean,
                      squareChars: List<SquareCharOcr>) : DisplayData(squareChars)
 {
+    // Read by manga-ocr rather than ML Kit, so the results window offers the other
+    var readWithMangaOcr = false
 }
 
 
