@@ -25,7 +25,6 @@ import ca.fuwafuwa.gaku.Prefs
 import ca.fuwafuwa.gaku.R
 import ca.fuwafuwa.gaku.Windows.Data.DisplayDataOcr
 import ca.fuwafuwa.gaku.Windows.Interfaces.WindowListener
-import ca.fuwafuwa.gaku.XmlParsers.CommonParser
 
 /**
  * Created by 0xbad1d3a5 on 4/13/2016.
@@ -51,16 +50,12 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
     // Why the last capture failed, shown when OCR is asked for
     private var mCaptureProblem: String? = null
 
-    private var mCommonParser: CommonParser? = null
-
     // Helper class to hold data
-    private inner class ScreenshotForOcr(val crop: Bitmap?, val params: BoxParams?)
+    private inner class ScreenshotForOcr(val crop: Bitmap, val params: BoxParams)
 
     init
     {
         show()
-
-        this.mCommonParser = CommonParser(context)
 
         mImageView = window.findViewById(R.id.capture_image)
         mFadeRepeat = AnimationUtils.loadAnimation(this.context, R.anim.fade_repeat)
@@ -83,9 +78,6 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
         ocrThread.name = String.format("OcrThread%d", System.nanoTime())
         ocrThread.isDaemon = true
         ocrThread.start()
-        
-        // FIX: Initialize MLKit immediately so it's ready when the user captures
-        mOcr.warmUp()
 
         // Need to wait for the view to finish updating before we try to determine its location
         mWindowBox = window.findViewById(R.id.capture_box)
@@ -129,17 +121,6 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
             setBorderStyle(e)
         }
 
-        when (e.action)
-        {
-            MotionEvent.ACTION_MOVE ->
-            {
-                if (System.currentTimeMillis() > mLastDoubleTapTime + mLastDoubleTapIgnoreDelay)
-                {
-                    mOcr.cancel()
-                }
-            }
-        }
-
         return super.onTouch(e)
     }
 
@@ -153,7 +134,6 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
     {
         hideInstantWindows()
 
-        mOcr.cancel()
         mImageView.setImageResource(0)
         setBorderStyle(e)
         return super.onResize(e)
@@ -184,7 +164,9 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
 
     fun showLoadingAnimation()
     {
-        (context as MainService).handler.post {
+        // Null once the window has been stopped: a read that was under way then finishes to nobody
+        val service = context as? MainService ?: return
+        service.handler.post {
             Log.d(TAG, "showLoadingAnimation")
             mWindowBox.background = mBorderDefault
             mImageView.imageAlpha = 0
@@ -195,7 +177,8 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
 
     fun stopLoadingAnimation(instant: Boolean)
     {
-        (context as MainService).handler.post {
+        val service = context as? MainService ?: return
+        service.handler.post {
             mProcessingOcr = false
             mWindowBox.background = mBorderReady
             mWindowBox.clearAnimation()
@@ -336,32 +319,25 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
 
     private fun performOcr(instant: Boolean)
     {
+        val screenshot = mScreenshotForOcr
+        if (screenshot == null)
+        {
+            Toast.makeText(context, mCaptureProblem ?: "Couldn't capture the screen, try again", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        // This is the UI thread, so never wait for the reader: a double tap during a read is refused
+        if (!mOcr.isReadyForOcr)
+        {
+            if (!instant) Toast.makeText(context, "Still reading, try again in a moment", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         mProcessingOcr = true
-
-        try
+        val box = screenshot.params
+        if (!mOcr.runTess(OcrParams(screenshot.crop, screenshot.crop, box, box.x, box.y, instant)))
         {
-            if (!instant)
-            {
-                while (!mOcr.isReadyForOcr)
-                {
-                    mOcr.cancel()
-                    Thread.sleep(10)
-                }
-            }
-
-            if (mScreenshotForOcr == null)
-            {
-                Toast.makeText(context, mCaptureProblem ?: "Couldn't capture the screen, try again", Toast.LENGTH_LONG).show()
-                mProcessingOcr = false
-                return
-            }
-
-            // Note: Changed name to runTess to runTess (user can rename method in OcrRunnable to match if desired, 
-            // but for now relying on previous OcrRunnable code which had runTess)
-            mOcr.runTess(OcrParams(mScreenshotForOcr!!.crop!!, mScreenshotForOcr!!.crop!!, mScreenshotForOcr!!.params!!, mScreenshotForOcr!!.params!!.x, mScreenshotForOcr!!.params!!.y, instant))
-        } catch (e: Exception)
-        {
-            e.printStackTrace()
+            mProcessingOcr = false
         }
     }
 
@@ -380,7 +356,10 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
         mProcessingOcr = true
         val box = displayData.boxParams
         val engine = if (displayData.readWithMangaOcr) OcrEngine.ML_KIT else OcrEngine.MANGA_OCR
-        mOcr.runTess(OcrParams(displayData.bitmap, displayData.bitmap, box, box.x, box.y, false, engine))
+        if (!mOcr.runTess(OcrParams(displayData.bitmap, displayData.bitmap, box, box.x, box.y, false, engine)))
+        {
+            mProcessingOcr = false
+        }
     }
 
     /**

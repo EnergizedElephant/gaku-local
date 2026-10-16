@@ -11,9 +11,10 @@ class OcrResult(val displayData: DisplayDataOcr,
     val text: String get() = displayData.text
     val message: String get() = String.format("OCR Time: %.2fs", mOcrTime / 1000.0)
 
+    /** Leaves the text out, so a logged result never carries what was on screen. */
     override fun toString(): String
     {
-        return String.format("%s\nOcrTime: %d\nInstant: %b", text, mOcrTime, displayData.instantMode)
+        return String.format("OcrTime: %d\nInstant: %b", mOcrTime, displayData.instantMode)
     }
 }
 

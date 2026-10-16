@@ -1,21 +1,17 @@
 package ca.fuwafuwa.gaku.Ocr
 
 import android.content.Context
-import android.content.Intent
-import android.graphics.Bitmap
 import android.os.Message
 import android.util.Log
-import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import java.util.Collections
 import java.util.IdentityHashMap
-import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import ca.fuwafuwa.gaku.*
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.JmDatabaseHelper
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized
@@ -27,165 +23,104 @@ import ca.fuwafuwa.gaku.Windows.Data.ChoiceCertainty
 import ca.fuwafuwa.gaku.Windows.Data.DisplayDataOcr
 import ca.fuwafuwa.gaku.Windows.Data.SquareCharOcr
 
-class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) : Runnable, Stoppable {
+class OcrRunnable(context: Context, captureWindow: CaptureWindow?) : Runnable, Stoppable {
     private val mContext: MainService = context as MainService
+    // Null once stopped, so a read that finishes afterwards doesn't touch the window
+    @Volatile private var mCaptureWindow: CaptureWindow? = captureWindow
     private val mOcrLock = java.lang.Object()
     private val mSimilarChars = loadSimilarChars()
     private val mCommonMistakes = loadCommonMistakes()
     // For furigana beside inflected words; the dictionary search has its own
     private val mDeinflector by lazy { Deinflector(mContext) }
-    private var mTextRecognizer: com.google.mlkit.vision.text.TextRecognizer? = null
+    // The backup reader, created on the OCR thread the first time it's needed: creating ML Kit's client
+    // is what starts Play Services' usage reporting, so a manga-ocr build never does it
+    private var mTextRecognizer: TextRecognizer? = null
     // The default reader, loaded when the OCR thread starts; null if unavailable, with the reason
     private var mMangaOcr: MangaOcr? = null
     private var mMangaOcrProblem: String? = null
+
+    // The three below are guarded by mOcrLock. The lock is never held while reading, so the UI thread,
+    // which asks for reads and stops this, never waits for one
     private var mThreadRunning = true
-    private var mOcrParams: OcrParams? = null
-    private var mIsReady = false
+    private var mPending: OcrParams? = null
+    private var mBusy = false
 
+    /** Whether a read would be accepted now: none waiting and none under way. */
     val isReadyForOcr: Boolean
-        get() = mOcrParams == null
-
-    init {
-        mOcrParams = null
-    }
-
-    fun warmUp() {
-        if (mIsReady) return
-
-        Log.d(TAG, "Warming up OCR engine.")
-
-        // safeInitClient returns true if successful, false if it crashed
-        if (!safeInitClient()) {
-            sendToastToContext("Failed to initialize MLKit (Check Logs)")
-            return
-        }
-
-        // ML Kit rejects images smaller than 32x32 without loading its model
-        val dummyBitmap = Bitmap.createBitmap(32, 32, Bitmap.Config.ARGB_8888)
-        val image = InputImage.fromBitmap(dummyBitmap, 0)
-
-        // Force non-null assertion (!!) is safe here because safeInitClient returned true
-        mTextRecognizer!!.process(image)
-            .addOnSuccessListener {
-                Log.d(TAG, "OCR engine is ready.")
-                mIsReady = true
-                sendModelReadyBroadcast()
-            }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "OCR engine warm-up failed.", e)
-                mIsReady = true // Mark ready anyway to unblock UI
-                sendModelReadyBroadcast()
-            }
-    }
-
-    private fun safeInitClient(): Boolean {
-        if (mTextRecognizer != null) return true
-
-        return try {
-            val options = JapaneseTextRecognizerOptions.Builder().build()
-            mTextRecognizer = TextRecognition.getClient(options)
-            true
-        } catch (e: Throwable) {
-            // This catch block is CRITICAL. It catches UnsatisfiedLinkError (Native crash)
-            // and standard Exceptions, printing them to Logcat so you can finally see them.
-            Log.e(TAG, "CRITICAL ERROR: Could not create TextRecognition client", e)
-            e.printStackTrace()
-            false
-        }
-    }
-
-    private fun sendModelReadyBroadcast() {
-        val intent = Intent(ACTION_MODEL_READY)
-        LocalBroadcastManager.getInstance(mContext).sendBroadcast(intent)
-    }
+        get() = synchronized(mOcrLock) { mPending == null && !mBusy }
 
     override fun run() {
-        // 1. Initialize safely on the background thread.
-        // If this fails, we exit the thread to prevent a crash loop.
-        if (!safeInitClient()) {
-            Log.e(TAG, "Stopping OcrRunnable because OCR Client failed to initialize.")
-            return
-        }
-
         // Before taking requests, so the first box doesn't wait for it; one sent meanwhile is read after
         loadMangaOcr()
+        if (mMangaOcr == null) {
+            // ML Kit is the only reader in this build, so get its slow first load out of the way
+            ensureMlKit()
+        }
 
-        while (mThreadRunning) {
-            try {
-                synchronized(mOcrLock) {
-                    if (mOcrParams == null) {
-                        mOcrLock.wait()
+        try {
+            while (true) {
+                val ocrParams = takeNextRequest() ?: break
+                val startTime = System.currentTimeMillis()
+                mCaptureWindow?.showLoadingAnimation()
+                try {
+                    Log.d(TAG, "Processing OCR with params $ocrParams")
+                    val displayData = read(ocrParams)
+                    if (displayData == null) {
+                        // Already explained in a toast
+                    } else if (displayData.text.isNotEmpty()) {
+                        processDisplayData(displayData)
+                        sendOcrResultToContext(OcrResult(displayData, System.currentTimeMillis() - startTime))
+                    } else {
+                        sendToastToContext("No Characters Recognized.")
                     }
-
-                    if (!mThreadRunning) return
-
-                    // Local capture to ensure thread safety
-                    val ocrParams = mOcrParams
-                    // Safely unwrap the recognizer (we know it's not null due to safeInitClient)
-                    val recognizer = mTextRecognizer
-
-                    if (ocrParams != null && recognizer != null) {
-                        Log.d(TAG, "Processing OCR with params $ocrParams")
-                        val startTime = System.currentTimeMillis()
-                        mCaptureWindow?.showLoadingAnimation()
-
-                        try {
-                            val useMangaOcr = when (ocrParams.engine) {
-                                OcrEngine.DEFAULT -> mMangaOcr != null
-                                OcrEngine.MANGA_OCR -> true
-                                OcrEngine.ML_KIT -> false
-                            }
-                            val displayData = if (useMangaOcr) {
-                                readWithMangaOcr(ocrParams)
-                            } else {
-                                // 2. Prepare the InputImage
-                                val image = InputImage.fromBitmap(ocrParams.bitmap, 0)
-
-                                // 3. Process blocking (Tasks.await is safe here in background thread)
-                                val result = Tasks.await(recognizer.process(image), 10, TimeUnit.SECONDS)
-
-                                getDisplayData(ocrParams, result)
-                            }
-
-                            if (displayData == null) {
-                                // Already explained in a toast
-                            } else if (displayData.text.isNotEmpty()) {
-                                processDisplayData(displayData)
-                                val ocrTime = System.currentTimeMillis() - startTime
-                                sendOcrResultToContext(OcrResult(displayData, ocrTime))
-                            } else {
-                                sendToastToContext("No Characters Recognized.")
-                            }
-                        } catch (e: Exception) {
-                            when (e) {
-                                is ExecutionException, is InterruptedException, is TimeoutException -> {
-                                    Log.e(TAG, "OCR failed", e)
-                                    sendToastToContext("OCR Failed: ${e.message}")
-                                }
-                                else -> {
-                                    Log.e(TAG, "Unexpected OCR Error", e)
-                                    // Don't throw; just log so the thread keeps living
-                                }
-                            }
-                        } finally {
-                            mCaptureWindow?.stopLoadingAnimation(ocrParams.instantMode)
-                            mOcrParams = null
-                        }
-                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "OCR failed", e)
+                    sendToastToContext("OCR failed: ${e.message ?: e.javaClass.simpleName}")
+                } finally {
+                    mCaptureWindow?.stopLoadingAnimation(ocrParams.instantMode)
+                    synchronized(mOcrLock) { mBusy = false }
                 }
-            } catch (e: InterruptedException) {
-                Log.d(TAG, "OcrRunnable interrupted, shutting down.")
-                mThreadRunning = false
-            } catch (e: Exception) {
-                // Catch global exceptions to keep the thread alive
-                Log.e(TAG, "General Error in OcrRunnable Loop", e)
-                e.printStackTrace()
             }
+        } catch (e: InterruptedException) {
+            Log.d(TAG, "OcrRunnable interrupted, shutting down.")
         }
 
         Log.d(TAG, "THREAD STOPPED")
         mTextRecognizer?.close()
         mMangaOcr?.close()
+    }
+
+    /** Waits for the next request and marks the reader busy, or returns null once stopped. */
+    private fun takeNextRequest(): OcrParams? {
+        synchronized(mOcrLock) {
+            while (mThreadRunning && mPending == null) {
+                mOcrLock.wait()
+            }
+            if (!mThreadRunning) return null
+            mBusy = true
+            return mPending.also { mPending = null }
+        }
+    }
+
+    /**
+     * Reads the crop with the reader [OcrParams.engine] asks for. Null, after a toast saying why, if
+     * that reader isn't available.
+     */
+    private fun read(ocrParams: OcrParams): DisplayDataOcr? {
+        return when (ocrParams.engine) {
+            OcrEngine.MANGA_OCR -> readWithMangaOcr(ocrParams)
+            OcrEngine.ML_KIT -> readWithMlKit(ocrParams)
+            OcrEngine.DEFAULT -> {
+                val model = mMangaOcr ?: return readWithMlKit(ocrParams)
+                try {
+                    readWithMangaOcr(ocrParams, model)
+                } catch (e: Exception) {
+                    Log.e(TAG, "manga-ocr failed, reading with ML Kit instead", e)
+                    sendToastToContext("manga-ocr failed, reading with ML Kit instead")
+                    readWithMlKit(ocrParams)
+                }
+            }
+        }
     }
 
     private fun loadMangaOcr() {
@@ -203,23 +138,27 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
         Log.d(TAG, "manga-ocr ${if (mMangaOcr != null) "loaded" else "unavailable"} in ${System.currentTimeMillis() - startTime} ms")
     }
 
-    /**
-     * Reads the crop with manga-ocr. Its alternatives for each character are the decoder's next
-     * likeliest characters. Null, after a toast saying why, if the model isn't loaded.
-     */
+    /** The results window's "Read with manga-ocr": says why if the model isn't loaded or fails. */
     private fun readWithMangaOcr(ocrParams: OcrParams): DisplayDataOcr? {
         val model = mMangaOcr ?: run {
             sendToastToContext(mMangaOcrProblem ?: "The manga-ocr model isn't loaded")
             return null
         }
-
-        val candidatesPerChar = try {
-            model.read(ocrParams.bitmap)
+        return try {
+            readWithMangaOcr(ocrParams, model)
         } catch (e: Exception) {
             Log.e(TAG, "manga-ocr failed", e)
             sendToastToContext("manga-ocr failed: ${e.message}")
-            return null
+            null
         }
+    }
+
+    /**
+     * Reads the crop with manga-ocr. Its alternatives for each character are the decoder's next
+     * likeliest characters.
+     */
+    private fun readWithMangaOcr(ocrParams: OcrParams, model: MangaOcr): DisplayDataOcr {
+        val candidatesPerChar = model.read(ocrParams.bitmap)
 
         val ocrChars = ArrayList<SquareCharOcr>()
         val displayData = DisplayDataOcr(ocrParams.originalBitmap, ocrParams.box, ocrParams.instantMode, ocrChars)
@@ -233,24 +172,48 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
         return displayData
     }
 
-    fun runTess(ocrParams: OcrParams) {
-        synchronized(mOcrLock) {
-            if (!mThreadRunning) return
-            mOcrParams = ocrParams
-            mOcrLock.notify()
-            Log.d(TAG, "NOTIFIED")
+    /** Reads the crop with ML Kit. Null, after a toast, if its client can't be created. */
+    private fun readWithMlKit(ocrParams: OcrParams): DisplayDataOcr? {
+        val recognizer = ensureMlKit() ?: run {
+            sendToastToContext("Couldn't start ML Kit")
+            return null
+        }
+        val image = InputImage.fromBitmap(ocrParams.bitmap, 0)
+        // Blocking is fine on this thread; the UI thread never waits for it
+        val result = Tasks.await(recognizer.process(image), 10, TimeUnit.SECONDS)
+        return getDisplayData(ocrParams, result)
+    }
+
+    private fun ensureMlKit(): TextRecognizer? {
+        mTextRecognizer?.let { return it }
+        return try {
+            TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build()).also { mTextRecognizer = it }
+        } catch (e: Throwable) {
+            // Throwable: a missing native library surfaces as an UnsatisfiedLinkError
+            Log.e(TAG, "Couldn't create ML Kit's text recognizer", e)
+            null
         }
     }
 
-    fun cancel() {
-        Log.d(TAG, "CANCELED (Not implemented for ML Kit)")
+    /**
+     * Asks for [ocrParams] to be read. False, and nothing happens, if a read is already waiting or
+     * under way or the thread has stopped; the caller should say so.
+     */
+    fun runTess(ocrParams: OcrParams): Boolean {
+        synchronized(mOcrLock) {
+            if (!mThreadRunning || mPending != null || mBusy) return false
+            mPending = ocrParams
+            mOcrLock.notify()
+            return true
+        }
     }
 
+    /** Returns at once. A read under way finishes first, to nobody; then the thread exits. */
     override fun stop() {
         synchronized(mOcrLock) {
             mThreadRunning = false
             mCaptureWindow = null
-            mOcrParams = null
+            mPending = null
             mOcrLock.notify()
         }
     }
@@ -489,17 +452,19 @@ class OcrRunnable(context: Context, private var mCaptureWindow: CaptureWindow?) 
         return commonMistakes
     }
 
+    // Once stopped, a read that was under way reports nothing: the window that asked for it is gone
     private fun sendOcrResultToContext(result: OcrResult) {
+        if (mCaptureWindow == null) return
         Message.obtain(mContext.handler, 0, result).sendToTarget()
     }
 
     private fun sendToastToContext(message: String) {
+        if (mCaptureWindow == null) return
         Message.obtain(mContext.handler, 0, message).sendToTarget()
     }
 
     companion object {
         private val TAG = OcrRunnable::class.java.name
-        const val ACTION_MODEL_READY = "ca.fuwafuwa.gaku.MODEL_READY"
         private const val SIMILAR_KANJI_ASSET = "similar_kanji.txt"
 
         /**

@@ -32,6 +32,13 @@ public class MainServiceHandler extends Handler {
         } else if (message.obj instanceof OcrResult) {
             OcrResult result = (OcrResult) message.obj;
 
+            // A read that finished after Gaku was hidden or shut down (neither waits for it): showing it
+            // would bring back a window the user just put away
+            if (!mWindowCoordinator.hasWindow(Constants.WINDOW_CAPTURE)) {
+                Log.d(TAG, "Dropping a result that arrived after the capture window closed");
+                return;
+            }
+
             // Timing only: never log the recognised text
             Log.d(TAG, String.format("%s, %d chars, instant: %b", result.getMessage(), result.getText().length(),
                     result.getDisplayData().getInstantMode()));
