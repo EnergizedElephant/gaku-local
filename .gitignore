@@ -93,3 +93,6 @@ fastlane/readme.md
 gen-external-apklibs
 
 # End of https://www.gitignore.io/api/android
+# IDE state with device identifiers
+.idea/deploymentTargetSelector.xml
+projectFilesBackup/
