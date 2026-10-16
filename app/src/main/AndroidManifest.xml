@@ -14,7 +14,8 @@
     <!-- REQUIRED for Android 13+ to show the Foreground Service Notification -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Fully offline: strip network permissions that libraries (ML Kit's datatransport) merge in -->
+    <!-- Fully offline: strip the network permissions that libraries merge in (ML Kit's datatransport and
+         ONNX Runtime's telemetry both ask for them) -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
@@ -97,6 +98,12 @@
                 android:name="backend:com.google.android.datatransport.cct.CctBackendFactory"
                 tools:node="remove" />
         </service>
+
+        <!-- ONNX Runtime's usage reporting to Microsoft: this provider would start it, and read the
+             device's ANDROID_ID, at every process start. MangaOcr also turns it off on its environment. -->
+        <provider
+            android:name="ai.onnxruntime.TelemetryInitializer"
+            tools:node="remove" />
     </application>
 
 </manifest>

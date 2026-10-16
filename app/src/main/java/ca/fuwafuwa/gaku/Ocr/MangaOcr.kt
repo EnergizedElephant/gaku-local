@@ -5,6 +5,7 @@ import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import android.content.Context
 import android.graphics.Bitmap
+import android.util.Log
 import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.FloatBuffer
@@ -142,6 +143,7 @@ class MangaOcr private constructor(private val env: OrtEnvironment,
 
     companion object
     {
+        private const val TAG = "MangaOcr"
         private const val ASSET_DIR = "manga-ocr"
         private const val IMAGE_SIZE = 224
         private const val MAX_TOKENS = 300
@@ -158,6 +160,16 @@ class MangaOcr private constructor(private val env: OrtEnvironment,
         fun load(context: Context): MangaOcr
         {
             val env = OrtEnvironment.getEnvironment()
+            try
+            {
+                // ONNX Runtime can report usage to Microsoft. Its initializer is removed in the manifest
+                // too, so nothing of it starts; this covers the environment itself
+                env.setTelemetry(false)
+            }
+            catch (e: Exception)
+            {
+                Log.w(TAG, "Couldn't turn off ONNX Runtime telemetry", e)
+            }
             val encoder = env.createSession(mapAsset(context, "$ASSET_DIR/encoder_model_int8.onnx"), OrtSession.SessionOptions())
             val decoder = env.createSession(mapAsset(context, "$ASSET_DIR/decoder_model_int8.onnx"), OrtSession.SessionOptions())
             val vocab = context.assets.open("$ASSET_DIR/vocab.txt").bufferedReader().readLines()
