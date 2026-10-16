@@ -2,8 +2,10 @@
 
 package ca.fuwafuwa.gaku
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.util.DisplayMetrics
 import android.util.Log
@@ -12,6 +14,7 @@ import android.widget.Toast
 import com.google.gson.GsonBuilder
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 import java.lang.Exception
 
 import java.util.ArrayList
@@ -106,6 +109,7 @@ fun setupGakuDatabasesAndFiles(context: Context)
     }
     catch (e: Exception)
     {
+        Log.e(TAG, "Unable to set up the dictionary", e)
         Toast.makeText(context, "Unable to setup Gaku database", Toast.LENGTH_LONG).show()
         return
     }
@@ -138,16 +142,21 @@ fun copyFilesIfNotExists(context: Context, filesAndPaths: Map<String, String>)
 
         if (File(filePath).exists())
         {
-            return
+            continue
         }
 
         createDirIfNotExists(path)
 
-        val input = context.assets.open(fileName)
-        val output = FileOutputStream(filePath)
-
-        input.copyTo(output);
-        output.close()
+        // Copied under another name and renamed, so a copy cut short (say, the app killed during its
+        // first launch) is never taken for the whole file next time
+        val partFile = File("$filePath.part")
+        context.assets.open(fileName).use { input ->
+            FileOutputStream(partFile).use { output -> input.copyTo(output) }
+        }
+        if (!partFile.renameTo(File(filePath)))
+        {
+            throw IOException("Couldn't move $partFile into place")
+        }
 
         Log.d(TAG, "Copied $filePath")
     }
@@ -157,8 +166,10 @@ fun copyFilesIfNotExists(context: Context, filesAndPaths: Map<String, String>)
  * Captures are never written to disk any more, but earlier builds saved full-screen PNGs here
  * (and their cleanup never deleted anything), so purge whatever is left.
  */
-fun deleteFilesFolder(context: Context, name: String)
+private fun deleteFilesFolder(context: Context, name: String)
 {
+    // Only ever a plain folder name directly under filesDir
+    require(name.isNotBlank() && !name.contains('/') && name != "." && name != "..") { "Bad folder name: $name" }
     val dir = File(context.filesDir, name)
     if (dir.exists() && !dir.deleteRecursively())
     {
@@ -166,5 +177,33 @@ fun deleteFilesFolder(context: Context, name: String)
     }
 }
 
+/**
+ * Opens [url] in the browser, or says there isn't one.
+ */
+fun openUrl(context: Context, url: String)
+{
+    try
+    {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    }
+    catch (e: ActivityNotFoundException)
+    {
+        Toast.makeText(context, "No browser is installed", Toast.LENGTH_SHORT).show()
+    }
+}
 
+/**
+ * Lets the start screen follow the service: MainService calls [notifyChanged] (on the main thread) when
+ * it starts, stops, or is shown or hidden, and the screen re-reads MainService.IsRunning() and the prefs.
+ */
+object GakuState
+{
+    @Volatile
+    var listener: (() -> Unit)? = null
 
+    @JvmStatic
+    fun notifyChanged()
+    {
+        listener?.invoke()
+    }
+}

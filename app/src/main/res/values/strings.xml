@@ -1,5 +1,17 @@
 <resources>
     <string name="app_name">Gaku</string>
-    <string name="support_text">"Like Gaku? Rate the app (no store yet)!"</string>
-    <string name="gaku_loading">Gaku is loading…</string>
+
+    <!-- The start screen's state line, buttons and hints (MainStartFragment.refreshState) -->
+    <string name="gaku_state_needs_overlay">Gaku needs permission to display over other apps</string>
+    <string name="gaku_state_off">Gaku is off</string>
+    <string name="gaku_state_starting">Gaku is starting…</string>
+    <string name="gaku_state_running">Gaku is running</string>
+    <string name="gaku_state_hidden">Gaku is hidden</string>
+    <string name="gaku_button_open_settings">Open settings</string>
+    <string name="gaku_button_start">Start Gaku</string>
+    <string name="gaku_button_show">Show</string>
+    <string name="gaku_button_hide">Hide</string>
+    <string name="gaku_button_stop">Stop</string>
+    <string name="gaku_hint_notifications">Notifications are off, so Gaku\'s notification controls are hidden. Use the buttons here or Gaku\'s Quick Settings tile.</string>
+    <string name="gaku_hint_entire_screen">When asked what to share, choose the entire screen. Sharing one app only reads that app while it fills the screen.</string>
 </resources>

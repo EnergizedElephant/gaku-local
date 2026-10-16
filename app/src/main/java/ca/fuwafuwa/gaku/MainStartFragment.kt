@@ -2,23 +2,22 @@ package ca.fuwafuwa.gaku
 
 import android.content.Intent
 import android.graphics.BitmapFactory
-import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
-import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import java.util.*
 
 
 data class ImgData(val res: Int, val name: String, val nameLink: String, val imgLink: String, val hasImg: Boolean = true)
@@ -28,10 +27,13 @@ class MainStartFragment : Fragment()
     private lateinit var mainActivity : MainActivity
     private lateinit var rootView : View
 
-    private lateinit var gakuLogo : TextView
-    private lateinit var gakuTitle : TextView
     private lateinit var tutorialText : TextView
     private lateinit var githubText : TextView
+    private lateinit var stateText : TextView
+    private lateinit var hintText : TextView
+    private lateinit var startButton : Button
+    private lateinit var showHideButton : Button
+    private lateinit var stopButton : Button
 
     private lateinit var supportText : TextView
     private lateinit var progressBar : ProgressBar
@@ -48,10 +50,13 @@ class MainStartFragment : Fragment()
 
         rootView = inflater.inflate(R.layout.fragment_start, container, false)
 
-        gakuLogo = rootView.findViewById(R.id.gaku_logo)
-        gakuTitle = rootView.findViewById(R.id.gaku_title)
         tutorialText = rootView.findViewById(R.id.gaku_tutorial)
         githubText = rootView.findViewById(R.id.gaku_github)
+        stateText = rootView.findViewById(R.id.gaku_state)
+        hintText = rootView.findViewById(R.id.gaku_hint)
+        startButton = rootView.findViewById(R.id.gaku_start)
+        showHideButton = rootView.findViewById(R.id.gaku_show_hide)
+        stopButton = rootView.findViewById(R.id.gaku_stop)
 
         supportText = rootView.findViewById(R.id.support_text)
         progressBar = rootView.findViewById(R.id.progress_bar)
@@ -59,82 +64,108 @@ class MainStartFragment : Fragment()
         promoView = rootView.findViewById(R.id.promoView)
         saeView = rootView.findViewById(R.id.saeView)
 
-        configureBottomPromo()
+        setupImage()
+        writeSupportText()
 
         tutorialText.setOnClickListener {
             startActivity(Intent(mainActivity, TutorialActivity::class.java))
         }
 
         githubText.setOnClickListener {
-            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/0xbad1d3a5/gaku"))
-            startActivity(browserIntent)
+            openUrl(mainActivity, "https://github.com/ExecuteOrd66/Gaku")
+        }
+
+        startButton.setOnClickListener {
+            if (mainActivity.canDrawOverlays()) mainActivity.startGaku() else mainActivity.openOverlaySettings()
+            refreshStateSoon(300)
+        }
+
+        showHideButton.setOnClickListener {
+            // The same explicit broadcast as the notification's button and the Quick Settings tile
+            mainActivity.sendBroadcast(Intent(mainActivity, MainService.ToggleShowHideMainService::class.java))
+            refreshStateSoon(300)
+        }
+
+        stopButton.setOnClickListener {
+            mainActivity.stopService(Intent(mainActivity, MainService::class.java))
+            refreshStateSoon(300)
         }
 
         return rootView
-    }
-
-    override fun onStart()
-    {
-        super.onStart()
-
-        supportText.viewTreeObserver.addOnGlobalLayoutListener {
-            var pos = IntArray(2)
-            supportText.getLocationInWindow(pos)
-            val drawableHeight = rootView.height - pos[1] - dpToPx(mainActivity, 30)
-
-            val logoSize = drawableHeight.toFloat() / 2
-            val titleSize = logoSize / 5
-            val textSize = titleSize / 2
-
-            gakuLogo.setTextSize(TypedValue.COMPLEX_UNIT_PX, logoSize)
-            gakuTitle.setTextSize(TypedValue.COMPLEX_UNIT_PX, titleSize)
-            tutorialText.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
-            supportText.setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize)
-        }
     }
 
     override fun onResume()
     {
         super.onResume()
 
-        if (!MainService.IsRunning())
-        {
-            onGakuLoadStart()
-        }
+        GakuState.listener = { refreshState() }
+        refreshState()
+    }
 
-        Timer().schedule(object : TimerTask()
+    override fun onPause()
+    {
+        GakuState.listener = null
+        super.onPause()
+    }
+
+    /**
+     * Shows what Gaku is doing, with the buttons that apply. The service calls back through GakuState
+     * when that changes; the buttons also check again shortly after, since the service answers in its
+     * own time.
+     */
+    private fun refreshState()
+    {
+        val running = MainService.IsRunning()
+        val starting = !running && mainActivity.isStarting()
+        val shown = running && getPrefs(mainActivity).showHideSetting
+
+        when
         {
-            override fun run()
+            !mainActivity.canDrawOverlays() ->
             {
-                mainActivity.runOnUiThread {
-                    mainActivity.refreshLoadingState(this@MainStartFragment)
-                }
+                stateText.setText(R.string.gaku_state_needs_overlay)
+                startButton.setText(R.string.gaku_button_open_settings)
+                showButtons(start = true, showHide = false, stop = false)
             }
-        }, 3000)
-    }
-
-    fun onGakuLoadStart()
-    {
-        progressBar.isIndeterminate = true
-        progressBar.progress = 0
-        supportText.text = getString(R.string.gaku_loading)
-    }
-
-    fun onGakuLoaded()
-    {
-        progressBar.isIndeterminate = false
-        progressBar.progress = 100
-        writeSupportText()
-    }
-
-    private fun configureBottomPromo()
-    {
-        setupImage()
-
-        if (MainService.IsRunning())
-        {
-            onGakuLoaded()
+            running ->
+            {
+                stateText.setText(if (shown) R.string.gaku_state_running else R.string.gaku_state_hidden)
+                showHideButton.setText(if (shown) R.string.gaku_button_hide else R.string.gaku_button_show)
+                showButtons(start = false, showHide = true, stop = true)
+            }
+            starting ->
+            {
+                stateText.setText(R.string.gaku_state_starting)
+                showButtons(start = false, showHide = false, stop = false)
+                // In case the service failed to start, which MainActivity isn't told about
+                refreshStateSoon(5000)
+            }
+            else ->
+            {
+                stateText.setText(R.string.gaku_state_off)
+                startButton.setText(R.string.gaku_button_start)
+                showButtons(start = true, showHide = false, stop = false)
+            }
         }
+        progressBar.visibility = if (starting) View.VISIBLE else View.INVISIBLE
+
+        val hints = ArrayList<String>()
+        if (!mainActivity.canShowNotifications()) hints.add(getString(R.string.gaku_hint_notifications))
+        if (!running && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) hints.add(getString(R.string.gaku_hint_entire_screen))
+        hintText.text = hints.joinToString("\n\n")
+        hintText.visibility = if (hints.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun showButtons(start: Boolean, showHide: Boolean, stop: Boolean)
+    {
+        startButton.visibility = if (start) View.VISIBLE else View.GONE
+        showHideButton.visibility = if (showHide) View.VISIBLE else View.GONE
+        stopButton.visibility = if (stop) View.VISIBLE else View.GONE
+    }
+
+    private fun refreshStateSoon(delayMillis: Long)
+    {
+        rootView.postDelayed({ if (isResumed) refreshState() }, delayMillis)
     }
 
     private fun setupImage()
@@ -145,9 +176,7 @@ class MainStartFragment : Fragment()
         {
             saeView.setImageBitmap(BitmapFactory.decodeStream(resources.openRawResource(imgData.res)))
             saeView.setOnClickListener {
-                val i = Intent(Intent.ACTION_VIEW)
-                i.data = Uri.parse(imgData.imgLink)
-                startActivity(i)
+                openUrl(mainActivity, imgData.imgLink)
             }
         }
     }
@@ -402,9 +431,7 @@ class MainStartFragment : Fragment()
             {
                 override fun onClick(view: View)
                 {
-                    val i = Intent(Intent.ACTION_VIEW)
-                    i.data = Uri.parse("https://twitter.com/hashtag/%E5%B0%8F%E6%97%A9%E5%B7%9D%E7%B4%97%E6%9E%9D")
-                    startActivity(i)
+                    openUrl(view.context, "https://twitter.com/hashtag/%E5%B0%8F%E6%97%A9%E5%B7%9D%E7%B4%97%E6%9E%9D")
                 }
 
                 override fun updateDrawState(ds: TextPaint)
@@ -419,9 +446,7 @@ class MainStartFragment : Fragment()
             {
                 override fun onClick(view: View)
                 {
-                    val i = Intent(Intent.ACTION_VIEW)
-                    i.data = Uri.parse(imgData.nameLink)
-                    startActivity(i)
+                    openUrl(view.context, imgData.nameLink)
                 }
 
                 override fun updateDrawState(ds: TextPaint)
@@ -437,7 +462,7 @@ class MainStartFragment : Fragment()
         }
         else
         {
-            supportText.text = getString(R.string.support_text)
+            supportText.text = ""
         }
     }
 }

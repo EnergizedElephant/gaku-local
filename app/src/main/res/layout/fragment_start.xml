@@ -5,60 +5,117 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/Primary"
     tools:context=".MainStartFragment">
 
-    <TextView
-        android:id="@+id/gaku_logo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:text="学"
-        android:textColor="@color/PrimaryDark"
-        android:textSize="150sp"
+    <!-- Scrolls on small screens instead of running into the art below -->
+    <ScrollView
+        android:id="@+id/top_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        app:layout_constraintBottom_toTopOf="@+id/support_text"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent">
 
-    <TextView
-        android:id="@+id/gaku_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:text="Japanese OCR Dictionary"
-        android:textColor="@color/PrimaryDark"
-        android:textSize="20sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/gaku_logo" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingLeft="16dp"
+            android:paddingTop="8dp"
+            android:paddingRight="16dp"
+            android:paddingBottom="8dp">
 
-    <TextView
-        android:id="@+id/gaku_tutorial"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="10dp"
-        android:padding="10dp"
-        android:text="Tap Here to View Tutorial"
-        android:textColor="@color/blue_dark"
-        android:textSize="12sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/gaku_title" />
+            <TextView
+                android:id="@+id/gaku_logo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="学"
+                android:textColor="@color/PrimaryDark"
+                android:textSize="96sp" />
 
-    <TextView
-        android:id="@+id/gaku_github"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:padding="10dp"
-        android:text="Dev? GitHub Here"
-        android:textColor="@color/blue_dark"
-        android:textSize="12sp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/gaku_tutorial" />
+            <TextView
+                android:id="@+id/gaku_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Japanese OCR Dictionary"
+                android:textColor="@color/PrimaryDark"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/gaku_tutorial"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:padding="10dp"
+                android:text="Tap Here to View Tutorial"
+                android:textColor="@color/blue_dark"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/gaku_github"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="10dp"
+                android:text="Dev? GitHub Here"
+                android:textColor="@color/blue_dark"
+                android:textSize="14sp" />
+
+            <!-- What Gaku is doing, and the buttons that apply (MainStartFragment.refreshState) -->
+            <TextView
+                android:id="@+id/gaku_state"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:gravity="center"
+                android:textColor="@color/PrimaryDark"
+                android:textSize="16sp" />
+
+            <LinearLayout
+                android:id="@+id/gaku_buttons"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/gaku_start"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/gaku_button_start" />
+
+                <Button
+                    android:id="@+id/gaku_show_hide"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/gaku_button_hide" />
+
+                <Button
+                    android:id="@+id/gaku_stop"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@string/gaku_button_stop" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/gaku_hint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:textColor="@color/PrimaryDark"
+                android:textSize="12sp"
+                android:visibility="gone" />
+
+        </LinearLayout>
+
+    </ScrollView>
 
     <TextView
         android:id="@+id/support_text"
@@ -69,7 +126,6 @@
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="15dp"
         android:gravity="center"
-        android:text="@string/gaku_loading"
         android:textColor="@color/PrimaryDark"
         android:textSize="12sp"
         app:layout_constraintBottom_toBottomOf="@+id/horizontal_line"
@@ -86,6 +142,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
+        <!-- Shown while Gaku is starting -->
         <ProgressBar
             android:id="@+id/progress_bar"
             style="?android:attr/progressBarStyleHorizontal"
@@ -93,7 +150,7 @@
             android:layout_height="32dp"
             android:layout_gravity="center"
             android:indeterminate="true"
-            android:indeterminateOnly="false" />
+            android:visibility="invisible" />
     </FrameLayout>
 
     <FrameLayout
@@ -122,4 +179,3 @@
     </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-

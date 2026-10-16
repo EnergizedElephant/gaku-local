@@ -19,9 +19,9 @@ class GrantPermissionDialogFragment : DialogFragment()
 
             val builder = AlertDialog.Builder(it)
 
-            builder.setTitle("Grant Gaku Permissions")
-                    .setMessage("Gaku uses optical character recognition (OCR) to detect text from images and works by automatically taking screenshots of your screen when active. After granting permissions, please restart Gaku.\n\nGaku works completely offline and WILL NEVER transmit ANY user data encountered during usage.")
-                    .setPositiveButton("GRANT")
+            builder.setTitle("Before you start")
+                    .setMessage("Gaku reads text by capturing your screen while it's running. Everything stays on your device: Gaku has no internet access.\n\nThe one exception is the Translate button, which hands the recognised text to Google Translate, and only when you tap it.\n\nNext, Gaku asks to display over other apps, to show notifications, and to capture the screen.")
+                    .setPositiveButton("CONTINUE")
                     {
                         _, _ ->
                         run {

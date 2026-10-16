@@ -2,6 +2,7 @@ package ca.fuwafuwa.gaku
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -12,16 +13,18 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import ca.fuwafuwa.gaku.Dialogs.StarRatingDialogFragment
 
 
 class MainActivity : AppCompatActivity()
 {
-    private var mShownRating = false
-    private var mNotificationPermissionAsked = false
+    // Per activity instance: each system screen opens once of its own accord. After a refusal the start
+    // screen offers a button instead, so nothing loops back into the same dialog
+    private var mOverlayRequested = false
     private var mScreenCaptureRequested = false
+    private var mConsentDeclined = false
+    // When the service was last asked to start, so the start screen can say "starting" meanwhile
+    private var mServiceStartedAt = 0L
 
     private lateinit var mPrefs : SharedPreferences
 
@@ -52,8 +55,6 @@ class MainActivity : AppCompatActivity()
         if (!checkDrawOnTopPermissions()) return
         if (requestNotificationPermission()) return
         requestScreenCaptureConsent()
-
-        showRatingDialog()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray)
@@ -62,115 +63,114 @@ class MainActivity : AppCompatActivity()
 
         if (requestCode == REQUEST_NOTIFICATIONS)
         {
-            if (grantResults.firstOrNull() != PackageManager.PERMISSION_GRANTED)
-            {
-                Toast.makeText(this, "Without notifications, Gaku's Show/Hide and Shutdown controls aren't available", Toast.LENGTH_LONG).show()
-            }
+            // Granted or not, carry on: the start screen says what's missing without them
             requestScreenCaptureConsent()
         }
     }
 
-    override fun onPause()
-    {
-        super.onPause()
-        Log.d(TAG, "ACTIVITY INVISIBLE")
-    }
-
-    override fun onResume()
-    {
-        super.onResume()
-        Log.d(TAG, "ACTIVITY VISIBLE")
-    }
-
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?)
     {
-        Log.d(TAG, "onActivityResult")
+        super.onActivityResult(requestCode, resultCode, data)
 
-        val relaunchAppText = "Relaunch Gaku after verifying permission"
-
-        if (requestCode == REQUEST_DRAW_ON_TOP)
+        when (requestCode)
         {
-            Log.d(TAG, "Recieved ACTION_MANAGE_OVERLAY_PERMISSION Intent")
-
-            if (resultCode != Activity.RESULT_OK)
+            REQUEST_DRAW_ON_TOP ->
             {
-                Toast.makeText(this, "Check Permission: Draw on Other Apps\n$relaunchAppText", Toast.LENGTH_LONG).show()
-                finish()
+                // The settings screen always returns RESULT_CANCELED; onStart() checks the permission itself
+                Log.d(TAG, "Back from the overlay permission screen")
             }
-
-            return
-        }
-
-        if (requestCode == REQUEST_SCREENSHOT)
-        {
-            Log.d(TAG, "Recieved REQUEST_SCREENSHOT Intent")
-            mScreenCaptureRequested = false
-
-            if (resultCode != Activity.RESULT_OK)
+            REQUEST_SCREENSHOT ->
             {
-                Toast.makeText(this, "Check Permission: Record Screen\n$relaunchAppText", Toast.LENGTH_LONG).show()
-                finish()
-                return
-            }
+                mScreenCaptureRequested = false
 
-            // Start the service now, while Gaku is in the foreground. When the user shares a single app,
-            // Android switches to that app as soon as this returns, and a foreground service can't be
-            // started from the background. Each consent can only be used once.
-            startGakuService(this, Intent(this, MainService::class.java)
-                    .putExtra(EXTRA_PROJECTION_RESULT_CODE, resultCode)
-                    .putExtra(EXTRA_PROJECTION_RESULT_INTENT, data))
-            return
+                if (resultCode != Activity.RESULT_OK || data == null)
+                {
+                    // Declined: the start screen shows Gaku as off, with a button to ask again
+                    mConsentDeclined = true
+                    return
+                }
+
+                // Start the service now, while Gaku is in the foreground. When the user shares a single app,
+                // Android switches to that app as soon as this returns, and a foreground service can't be
+                // started from the background. Each consent can only be used once.
+                mServiceStartedAt = System.currentTimeMillis()
+                startGakuService(this, Intent(this, MainService::class.java)
+                        .putExtra(EXTRA_PROJECTION_RESULT_CODE, resultCode)
+                        .putExtra(EXTRA_PROJECTION_RESULT_INTENT, data))
+            }
         }
     }
 
-    /**
-     * Called by the start screen a few seconds after it resumes, to replace its loading text once the
-     * service is running.
-     */
-    fun refreshLoadingState(startFragment: MainStartFragment)
+    /** Whether Gaku may draw over other apps. Without it, the start screen offers [openOverlaySettings]. */
+    fun canDrawOverlays(): Boolean
     {
-        if (MainService.IsRunning())
-        {
-            startFragment.onGakuLoaded()
-        }
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(this)
+    }
+
+    /** Whether the service's notification, which holds Gaku's controls, can be shown. */
+    fun canShowNotifications(): Boolean
+    {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
 
     /**
-     * @return true if Gaku can draw over other apps; otherwise the settings screen has been opened
+     * Whether Gaku is about to run: the consent dialog is up, or the service was just asked to start.
+     * The time limit covers a service that failed to start, which this activity isn't told about.
+     */
+    fun isStarting(): Boolean
+    {
+        return mScreenCaptureRequested || System.currentTimeMillis() - mServiceStartedAt < 5000
+    }
+
+    /** The start screen's Start button: asks for screen capture (again). */
+    fun startGaku()
+    {
+        mConsentDeclined = false
+        requestScreenCaptureConsent()
+    }
+
+    fun openOverlaySettings()
+    {
+        Log.d(TAG, "Sending ACTION_MANAGE_OVERLAY_PERMISSION Intent")
+        startActivityForResult(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")), REQUEST_DRAW_ON_TOP)
+    }
+
+    /**
+     * @return true if Gaku can draw over other apps. Otherwise, the first time, explains and offers the
+     * settings screen; after that the start screen's button does.
      */
     private fun checkDrawOnTopPermissions(): Boolean
     {
-        var checkPermissions = "Check \"Draw on Top of Other Apps\" permission"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+        if (canDrawOverlays()) return true
+
+        if (!mOverlayRequested)
         {
-            if (!Settings.canDrawOverlays(this))
-            {
-                Log.d(TAG, "Sending ACTION_MANAGE_OVERLAY_PERMISSION Intent")
-                startActivityForResult(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")), REQUEST_DRAW_ON_TOP)
-                return false
-            }
+            mOverlayRequested = true
+            AlertDialog.Builder(this)
+                    .setTitle("Display over other apps")
+                    .setMessage("Gaku draws its capture box over other apps. On the next screen, turn on \"Display over other apps\" for Gaku, then come back.")
+                    .setPositiveButton("Open settings") { _, _ -> openOverlaySettings() }
+                    .setNegativeButton("Not now", null)
+                    .show()
         }
-        else
-        {
-            Toast.makeText(this, "Manually $checkPermissions\nGaku might not work on this device", Toast.LENGTH_LONG).show()
-        }
-        return true
+        return false
     }
 
     /**
      * Android 13+ hides the service's notification, which holds the Show/Hide and Shutdown controls,
-     * unless this is granted. Gaku still works without it.
+     * unless this is granted. Gaku still works without it, so it's only ever asked once.
      * @return true if the request is in flight; onRequestPermissionsResult carries on from there
      */
     private fun requestNotificationPermission(): Boolean
     {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || mNotificationPermissionAsked ||
-                checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || canShowNotifications() ||
+                mPrefs.getBoolean(GAKU_PREF_NOTIFICATIONS_ASKED, false))
         {
             return false
         }
 
-        mNotificationPermissionAsked = true
+        mPrefs.edit().putBoolean(GAKU_PREF_NOTIFICATIONS_ASKED, true).apply()
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_NOTIFICATIONS)
         return true
     }
@@ -178,8 +178,9 @@ class MainActivity : AppCompatActivity()
     private fun requestScreenCaptureConsent()
     {
         // The running service already holds a projection, and onStart also runs when coming back from
-        // another activity (e.g. the single-app picker), so only ask when no request is pending
-        if (MainService.IsRunning() || mScreenCaptureRequested)
+        // another activity (e.g. the single-app picker), so only ask when no request is pending. After
+        // a refusal, only the Start button asks again.
+        if (MainService.IsRunning() || mScreenCaptureRequested || mConsentDeclined)
         {
             return
         }
@@ -188,24 +189,6 @@ class MainActivity : AppCompatActivity()
         mScreenCaptureRequested = true
         val mediaProjectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         startActivityForResult(mediaProjectionManager.createScreenCaptureIntent(), REQUEST_SCREENSHOT)
-    }
-
-    private fun showRatingDialog()
-    {
-        if (mShownRating)
-        {
-            return
-        }
-
-        mShownRating = true
-
-        val timesLaunched = mPrefs.getInt(GAKU_PREF_TIMES_LAUNCHED, 1)
-        val rated = mPrefs.getBoolean(GAKU_PREF_PLAY_STORE_RATED, false)
-
-        if (timesLaunched % 20 == 0 && !rated)
-        {
-            StarRatingDialogFragment().show(supportFragmentManager, "StarRating")
-        }
     }
 
     private fun isFirstLaunch() : Boolean
@@ -218,7 +201,3 @@ class MainActivity : AppCompatActivity()
         private val TAG = MainActivity::class.java.name
     }
 }
-
-
-
-

@@ -16,8 +16,8 @@ const val GAKU_PREF_FILE = "ca.fuwafuwa.gaku"
 const val GAKU_PREF_SHOW_HIDE = "ShowHide"
 const val GAKU_PREF_INSTANT_MODE = "InstantMode"
 const val GAKU_PREF_FIRST_LAUNCH = "FirstLaunch"
-const val GAKU_PREF_TIMES_LAUNCHED = "TimesLaunched"
-const val GAKU_PREF_PLAY_STORE_RATED = "PlayStoreRated"
+// Android 13+ notification permission: asked once, since Gaku works without it
+const val GAKU_PREF_NOTIFICATIONS_ASKED = "NotificationsAsked"
 
 const val EXTRA_PROJECTION_RESULT_CODE = "ca.fuwafuwa.gaku.PROJECTION_RESULT_CODE"
 const val EXTRA_PROJECTION_RESULT_INTENT = "ca.fuwafuwa.gaku.PROJECTION_RESULT_INTENT"

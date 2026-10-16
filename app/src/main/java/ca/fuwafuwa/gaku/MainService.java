@@ -26,6 +26,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.ServiceCompat;
+import androidx.core.content.ContextCompat;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
@@ -61,6 +63,9 @@ public class MainService extends Service implements Stoppable {
             boolean shown = prefs.getBoolean(Constants.GAKU_PREF_SHOW_HIDE, true);
             prefs.edit().putBoolean(Constants.GAKU_PREF_SHOW_HIDE, !shown).apply();
 
+            // Only MainActivity starts the service: that needs an unused capture consent, and without one
+            // startForeground() with the mediaProjection type throws on Android 14+
+            if (!IsRunning()) return;
             GakuTools.startGakuService(context, new Intent(context, MainService.class));
         }
     }
@@ -72,6 +77,8 @@ public class MainService extends Service implements Stoppable {
             boolean pageMode = prefs.getBoolean(Constants.GAKU_PREF_INSTANT_MODE, true);
             prefs.edit().putBoolean(Constants.GAKU_PREF_INSTANT_MODE, !pageMode).apply();
 
+            // See ToggleShowHideMainService
+            if (!IsRunning()) return;
             GakuTools.startGakuService(context, new Intent(context, MainService.class));
         }
     }
@@ -191,12 +198,8 @@ public class MainService extends Service implements Stoppable {
         mMediaProjectionManager = (MediaProjectionManager) getSystemService(MEDIA_PROJECTION_SERVICE);
         mHandler = new MainServiceHandler(this, mWindowCoordinator);
 
-        // Set preferences for ratings
-        SharedPreferences prefs = getSharedPreferences(Constants.GAKU_PREF_FILE, Context.MODE_PRIVATE);
-        int timesLaunched = prefs.getInt(Constants.GAKU_PREF_TIMES_LAUNCHED, 1);
-        prefs.edit().putInt(Constants.GAKU_PREF_TIMES_LAUNCHED, timesLaunched + 1).apply();
-
-        registerReceiver(mScreenOffReceiver, mIntentFilter);
+        // A system broadcast, so the flag only states the obvious
+        ContextCompat.registerReceiver(this, mScreenOffReceiver, mIntentFilter, ContextCompat.RECEIVER_NOT_EXPORTED);
 
         startForeground(NOTIFICATION_ID, getNotification());
         isGakuRunning = true;
@@ -229,6 +232,7 @@ public class MainService extends Service implements Stoppable {
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         notificationManager.notify(NOTIFICATION_ID, getNotification());
         ShowHideTileService.requestUpdate(this);
+        GakuState.notifyChanged();
 
         return START_NOT_STICKY;
     }
@@ -254,15 +258,17 @@ public class MainService extends Service implements Stoppable {
 
     @Override
     public void onDestroy() {
-        unregisterReceiver(mScreenOffReceiver);
-        stopForeground(true);
         Log.d(TAG, "DESTORYING MAINSERVICE: " + System.identityHashCode(this));
+        unregisterReceiver(mScreenOffReceiver);
 
+        // Release the projection and take the windows down before the notification goes
         stop();
         mWindowCoordinator.stopAllWindows();
         mWindowCoordinator = null;
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
         isGakuRunning = false;
         ShowHideTileService.requestUpdate(this);
+        GakuState.notifyChanged();
 
         Log.d(TAG, String.format("MAINSERVICE: %s DESTROYED", System.identityHashCode(this)));
         super.onDestroy();
@@ -395,7 +401,7 @@ public class MainService extends Service implements Stoppable {
      */
     public String getCaptureProblem() {
         if (!mCapturedContentVisible) {
-            return "The app Gaku is sharing isn't on screen. Switch back to it, or relaunch Gaku to share this one";
+            return "The app Gaku is sharing isn't on screen. Switch back to it, or stop Gaku and start it again to share this one";
         }
         Point size = mCapturedContentSize;
         if (size != null && (size.x != mRealDisplaySize.x || size.y != mRealDisplaySize.y)) {
