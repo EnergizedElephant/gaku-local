@@ -13,9 +13,10 @@
         android:scaleType="fitCenter"
         android:layout_above="@+id/edit_text" />
 
+    <!-- flagNoPersonalizedLearning: the keyboard shouldn't learn from what was on screen -->
     <ca.fuwafuwa.gaku.Windows.Views.ChoiceEditText
         android:id="@+id/edit_text"
-        android:imeOptions="flagNoExtractUi"
+        android:imeOptions="flagNoExtractUi|flagNoPersonalizedLearning"
         android:maxLines="1"
         android:inputType="text"
         android:padding="10dp"

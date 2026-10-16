@@ -157,6 +157,13 @@ class InstantInfoWindow(context: Context,
         }
     }
 
+    override fun stop()
+    {
+        // A search still running then answers to nobody, rather than to a window with no context
+        searcher.unregisterCallback()
+        super.stop()
+    }
+
     override fun jmResultsCallback(results: MutableList<JmSearchResult>, search: SearchInfo)
     {
         show()
@@ -177,21 +184,23 @@ class InstantInfoWindow(context: Context,
         }
 
         // Highlights words in the window as long as they match
+        // The character may have scrolled out of the grid since the search was asked for
+        val views = instantKanjiWindow.getKanjiView().kanjiViewList
         val start = search.index - instantKanjiWindow.getKanjiView().offset
         if (results.size > 0)
         {
             val kanji = results[0].word
-            for (i in start until start + kanji.codePointCount(0, kanji.length))
+            for (i in maxOf(start, 0) until start + kanji.codePointCount(0, kanji.length))
             {
-                if (i >= instantKanjiWindow.getKanjiView().kanjiViewList.size)
+                if (i >= views.size)
                 {
                     break
                 }
-                instantKanjiWindow.getKanjiView().kanjiViewList[i].highlight()
+                views[i].highlight()
             }
-        } else
+        } else if (start in views.indices)
         {
-            instantKanjiWindow.getKanjiView().kanjiViewList[start].highlight()
+            views[start].highlight()
         }
     }
 

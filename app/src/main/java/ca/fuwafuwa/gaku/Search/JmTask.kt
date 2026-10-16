@@ -38,6 +38,20 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
 
     override fun doInBackground(vararg params: Void): List<JmSearchResult>
     {
+        return try
+        {
+            lookUp()
+        }
+        catch (e: Exception)
+        {
+            // Thrown from an AsyncTask, this would take the whole process down
+            Log.e(TAG, "Dictionary lookup failed", e)
+            emptyList()
+        }
+    }
+
+    private fun lookUp(): List<JmSearchResult>
+    {
         val text = mSearchInfo.text
         val textOffset = mSearchInfo.textOffset
         val entryOptimizedDao = mJmDbHelper.getDbDao<EntryOptimized>(EntryOptimized::class.java)

@@ -139,6 +139,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
 
         mOcrResult = displayData instanceof DisplayDataOcr ? (DisplayDataOcr) displayData : null;
         mReadAgainButton.setVisibility(mOcrResult != null ? View.VISIBLE : View.GONE);
+        mInstantButton.setVisibility(View.VISIBLE);
         if (mOcrResult != null)
         {
             mReadAgainButton.setText(mOcrResult.getReadWithMangaOcr() ? "Read with ML Kit" : "Read with manga-ocr");
@@ -149,6 +150,8 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     {
         mOcrResult = null;
         mReadAgainButton.setVisibility(View.GONE);
+        // Instant mode is about the capture box, and the service may not even be running
+        mInstantButton.setVisibility(View.GONE);
 
         List<String> charList = GakuTools.splitTextByChar(textResult);
         List<ISquareChar> squareCharList = new ArrayList<>();
@@ -167,6 +170,11 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         ClipboardManager clipboard = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
         ClipData clip = ClipData.newPlainText(null, mKanjiGrid.getText());
         clipboard.setPrimaryClip(clip);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
+        {
+            // Android 13+ shows its own confirmation
+            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show();
+        }
 
         hide();
     }
@@ -496,18 +504,20 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         }
 
         // Highlights words in the window as long as they match
+        // The character may have scrolled out of the grid since the search was asked for
+        List<KanjiCharacterView> views = mKanjiGrid.getKanjiViewList();
         int start = search.getIndex() - mKanjiGrid.getOffset();
         if (results.size() > 0){
             String kanji = results.get(0).getWord();
-            for (int i = start; i < start + kanji.codePointCount(0, kanji.length()); i++){
-                if (i >= mKanjiGrid.getKanjiViewList().size()){
+            for (int i = Math.max(start, 0); i < start + kanji.codePointCount(0, kanji.length()); i++){
+                if (i >= views.size()){
                     break;
                 }
-                mKanjiGrid.getKanjiViewList().get(i).highlight();
+                views.get(i).highlight();
             }
         }
-        else {
-            mKanjiGrid.getKanjiViewList().get(start).highlight();
+        else if (start >= 0 && start < views.size()) {
+            views.get(start).highlight();
         }
     }
 

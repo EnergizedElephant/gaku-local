@@ -66,32 +66,45 @@
                     android:layout_height="wrap_content"
                     android:layout_margin="5dp">
 
-                    <TextView
-                        android:id="@+id/info_translate"
-                        style="@style/InfoButton"
-                        android:text="Translate" />
-
-                    <TextView
-                        android:id="@+id/info_copy"
-                        style="@style/InfoButton"
-                        android:text="Copy" />
-
-                    <!-- Reads the same crop with the other reader; hidden for text looked up from
-                         another app, which has no image -->
-                    <TextView
-                        android:id="@+id/info_read_again"
-                        style="@style/InfoButton"
-                        android:text="Read with ML Kit" />
-
-                    <TextView
-                        android:id="@+id/info_instant"
-                        style="@style/InfoButton"
-                        android:text="Instant: off" />
-
-                    <View
+                    <!-- Scrolls sideways where the buttons don't all fit (phones in portrait), with the
+                         close button always in view -->
+                    <HorizontalScrollView
                         android:layout_width="0dp"
-                        android:layout_height="0dp"
-                        android:layout_weight="1" />
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:scrollbars="none">
+
+                        <LinearLayout
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content">
+
+                            <TextView
+                                android:id="@+id/info_translate"
+                                style="@style/InfoButton"
+                                android:text="Translate" />
+
+                            <TextView
+                                android:id="@+id/info_copy"
+                                style="@style/InfoButton"
+                                android:text="Copy" />
+
+                            <!-- Reads the same crop with the other reader; hidden for text looked up from
+                                 another app, which has no image -->
+                            <TextView
+                                android:id="@+id/info_read_again"
+                                style="@style/InfoButton"
+                                android:text="Read with ML Kit" />
+
+                            <TextView
+                                android:id="@+id/info_instant"
+                                style="@style/InfoButton"
+                                android:text="Instant: off" />
+
+                        </LinearLayout>
+
+                    </HorizontalScrollView>
 
                     <TextView
                         android:id="@+id/info_close"

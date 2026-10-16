@@ -54,7 +54,9 @@ public class Searcher implements JmTask.SearchJmTaskDone {
     @Override
     public void jmTaskCallback(@NotNull List<JmSearchResult> results, @NotNull SearchInfo searchInfo)
     {
-        mSearchDictDone.jmResultsCallback(results, searchInfo);
+        // Null once the window that asked has been stopped (hidden or shut down mid-search)
+        SearchDictDone callback = mSearchDictDone;
+        if (callback != null) callback.jmResultsCallback(results, searchInfo);
     }
 }
 

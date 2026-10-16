@@ -3,11 +3,13 @@ package ca.fuwafuwa.gaku.Windows
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.View.INVISIBLE
 import android.widget.LinearLayout
+import android.widget.Toast
 import ca.fuwafuwa.gaku.R
 import ca.fuwafuwa.gaku.Windows.Data.DisplayDataOcr
 import ca.fuwafuwa.gaku.Windows.Enums.LayoutPosition
@@ -132,6 +134,11 @@ class InstantKanjiWindow(context: Context,
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText(null, kanjiGrid.getText())
         clipboard.setPrimaryClip(clip)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
+        {
+            // Android 13+ shows its own confirmation
+            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+        }
 
         hide()
     }
