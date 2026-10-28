@@ -90,6 +90,11 @@ The older gestures still work: on a character, swipe down for alternatives, up a
 
 **A local LLM (lan build).** Run Ollama where the tablet can reach it, listening on the network rather than only on its own machine (`OLLAMA_HOST=0.0.0.0`). On Gaku's start screen, type the server's address, such as `192.168.1.10` (port 11434 is assumed), tap *Connect* and choose a model. To turn it off, clear the address and tap *Connect*.
 
+If the tablet and the server are on different networks, there are two other ways to connect:
+
+- **Over USB.** On the computer running Ollama, run `adb reverse tcp:11434 tcp:11434` and set the server to `127.0.0.1`. This works until the cable is unplugged.
+- **With [Tailscale](https://tailscale.com).** Gaku accepts Tailscale addresses (100.64.0.0/10). Rather than putting the tablet in your own tailnet, sign it into a separate Tailscale account and share just the server with that account. Then, in your access policy, allow that account to reach only port 11434 on the server. Tailscale's default policy lets everything in (`"src": ["*"]`), and that includes accounts you've shared with, so narrow it to `autogroup:member`. If your rules name the server by a host defined in the policy, check that the host has the server's current Tailscale address.
+
 **Text you can select.** Select Japanese text in any app and choose *Gaku* from the menu, or share it to Gaku, to look it up without OCR.
 
 ## Building
