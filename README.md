@@ -4,6 +4,8 @@ A privacy-hardened fork of [Gaku](https://github.com/ExecuteOrd66/Gaku), a Japan
 
 The app is still called Gaku. This is a personal fork and isn't on any app store, so to use it, [build it yourself](#building).
 
+The `lan-llm` branch adds an optional build that can ask an [Ollama](https://ollama.com) server on your own network to translate the text or explain its grammar. That build needs the network permission, so it's kept off `main`, and everything below describes the offline app. The branch's README explains the LLM build and how to set it up.
+
 ## Where it comes from
 
 | Project | What it brought |
