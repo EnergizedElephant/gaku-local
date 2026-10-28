@@ -14,4 +14,11 @@
     <string name="gaku_button_stop">Stop</string>
     <string name="gaku_hint_notifications">Notifications are off, so Gaku\'s notification controls are hidden. Use the buttons here or Gaku\'s Quick Settings tile.</string>
     <string name="gaku_hint_entire_screen">When asked what to share, choose the entire screen. Sharing one app only reads that app while it fills the screen.</string>
+
+    <!-- The start screen's Ollama settings, lan build only (MainStartFragment.setupLlm) -->
+    <string name="llm_button_connect">Connect</string>
+    <string name="llm_status_not_set">Type the address of an Ollama server on your network and tap Connect. Until then, Translate opens Google Translate.</string>
+    <string name="llm_status_connecting">Connecting…</string>
+    <string name="llm_status_no_models">The server has no models. Pull one with \"ollama pull\", then Connect again.</string>
+    <string name="llm_status_using">Translate and Ask use %1$s. Text is only sent when you tap them.</string>
 </resources>

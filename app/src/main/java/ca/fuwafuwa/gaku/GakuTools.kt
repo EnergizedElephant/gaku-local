@@ -23,7 +23,14 @@ private const val TAG = "GakuTools"
 private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().excludeFieldsWithoutExposeAnnotation().create()
 
 data class Prefs(val instantModeSetting: Boolean,
-                 val showHideSetting: Boolean);
+                 val showHideSetting: Boolean,
+                 // The Ollama server and model (lan build); empty until set on the start screen
+                 val llmServer: String,
+                 val llmModel: String)
+{
+    val llmConfigured: Boolean
+        get() = BuildConfig.LLM && llmServer.isNotEmpty() && llmModel.isNotEmpty()
+}
 
 // NOTE: The defValue here should match the defValue of the BroadcastReceivers, otherwise
 // they will be out of sync the first time.
@@ -33,7 +40,9 @@ fun getPrefs(context: Context): Prefs
 
     return Prefs(
             prefs.getBoolean(GAKU_PREF_INSTANT_MODE, true),
-            prefs.getBoolean(GAKU_PREF_SHOW_HIDE, true))
+            prefs.getBoolean(GAKU_PREF_SHOW_HIDE, true),
+            prefs.getString(GAKU_PREF_LLM_SERVER, "")!!,
+            prefs.getString(GAKU_PREF_LLM_MODEL, "")!!)
 }
 
 fun toJson(obj: Any): String

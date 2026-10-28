@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ollama serves plain HTTP, and a server on the local network rarely has a certificate. Only
+     OllamaClient connects, and only to local addresses. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

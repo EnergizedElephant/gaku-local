@@ -18,7 +18,7 @@ Each of this fork's changes is explained in its commit message. They're the comm
 
 ### Privacy and security
 
-- **No network access.** The app has no internet or network-state permission. Ads were switched off, but Gaku still carried the Google Mobile Ads SDK, with an auto-starting initializer, WorkManager and the advertising ID permission. It's gone.
+- **No network access** in the offline build. It has no internet or network-state permission. Ads were switched off, but Gaku still carried the Google Mobile Ads SDK, with an auto-starting initializer, WorkManager and the advertising ID permission. It's gone.
 - **Screen captures never touch storage.** Gaku saved the whole screen and the crop as PNG files whenever a capture check failed, and its clean-up never deleted them. Nothing is written now, and captures left by earlier builds are deleted at startup.
 - **Nothing on screen reaches the log.** Recognised text is never logged, and release builds strip all debug logging.
 - **Library telemetry is off.** ML Kit's usage-reporting backend is unregistered, ONNX Runtime's Microsoft telemetry is removed and disabled, and ML Kit only starts when you ask for an ML Kit read.
@@ -31,6 +31,13 @@ Each of this fork's changes is explained in its commit message. They're the comm
 - **Right reading order.** Vertical columns read right to left. ML Kit lists them left to right.
 - **Furigana.** With ML Kit, furigana is left out of the text and used to correct the kanji beside it, matching inflected words by their dictionary form.
 - **Fixing misreads again.** Each character offers alternatives: manga-ocr's next guesses, visually similar kanji from Lars Yencken's data, and look-alike kana. The edit window shows the character in context.
+
+### A local LLM, in the lan build
+
+- **Two builds.** `offline` is the app as described everywhere else here, with no network permission. `lan` adds one, so it can ask an [Ollama](https://ollama.com) server on your own network to translate the text or explain it.
+- **Translation from your own model.** With a server set, *Translate* shows the model's translation above the dictionary results, and *Google* opens Google Translate instead.
+- **Ask about a sentence.** *Ask* opens a chat about the text. The model is also told the word you last looked up, its dictionary entry and the translation, if any. Buttons ask for the grammar, a word-by-word breakdown or the nuance, and you can type follow-up questions.
+- **Local network only.** The lan build refuses servers outside private, link-local and Tailscale addresses, and only connects when you tap *Connect*, *Translate* or *Ask*.
 
 ### Capture
 
@@ -58,8 +65,9 @@ Each of this fork's changes is explained in its commit message. They're the comm
 
 - Gaku only captures the screen while it's shown. When it's hidden it keeps the capture session but takes no frames, so Android's screen-sharing indicator stays on until you stop Gaku.
 - Captures and recognised text stay in memory. They're never written to storage or logged.
-- Reading and the dictionary run on the device. Gaku has no internet permission.
-- Text leaves the device only when you tap *Translate*, which hands it to the Google Translate app, or when you copy it.
+- Reading and the dictionary run on the device. The offline build has no internet permission.
+- In the lan build, text goes to your Ollama server when you tap *Translate* or *Ask*: the recognised text, the word you last looked up with its dictionary entry, and what you type in the chat. Conversations stay in memory and end when you open another sentence.
+- Otherwise, text leaves the device only when you open Google Translate, which gets the text, or when you copy it.
 - One exception: when you use *Read with ML Kit*, ML Kit can report usage to Google Play services, which has its own network access. From its code, these reports are metadata such as call timings, not images or text.
 
 ## Using it
@@ -74,9 +82,13 @@ Each of this fork's changes is explained in its commit message. They're the comm
 
 **The results.** Tap a character to look it up from that point. Its alternatives appear below it: tap one to swap it in, or use *Edit* to type or handwrite the right one, or *Delete*. *Translate* opens Google Translate's pop-up, *Copy* copies the text, and *Read with ML Kit* rereads the crop with the other reader. Tap outside the results, or ✕, to close them.
 
+In the lan build with a server set, *Translate* shows your model's translation, *Google* opens Google Translate, and *Ask* opens a chat about the sentence. Close the chat with ✕ or *Back* to return to the results. *Stop* ends an answer early.
+
 The older gestures still work: on a character, swipe down for alternatives, up and left to edit, or up and right to delete, and long-press to copy all the text.
 
 **Showing, hiding and stopping.** Use the start screen, the notification or the Quick Settings tile. Turning the screen off hides Gaku. *Stop* ends the capture session, and *Start* asks for consent again.
+
+**A local LLM (lan build).** Run Ollama where the tablet can reach it, listening on the network rather than only on its own machine (`OLLAMA_HOST=0.0.0.0`). On Gaku's start screen, type the server's address, such as `192.168.1.10` (port 11434 is assumed), tap *Connect* and choose a model. To turn it off, clear the address and tap *Connect*.
 
 **Text you can select.** Select Japanese text in any app and choose *Gaku* from the menu, or share it to Gaku, to look it up without OCR.
 
@@ -85,15 +97,17 @@ The older gestures still work: on a character, swipe down for alternatives, up a
 Use JDK 17 or 21: newer JDKs can fail with "Unsupported class file major version". You also need the Android SDK with platform 34. Point the build at the SDK with `sdk.dir` in `local.properties`, which Android Studio writes, or with `ANDROID_HOME`.
 
 ```sh
-tools/fetch_manga_ocr.sh        # the manga-ocr model, ~117 MB, pinned and SHA-256-checked
-bash ./gradlew assembleDebug    # gradlew isn't marked executable
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+tools/fetch_manga_ocr.sh                # the manga-ocr model, ~117 MB, pinned and SHA-256-checked
+bash ./gradlew assembleOfflineDebug     # gradlew isn't marked executable
+adb install -r app/build/outputs/apk/offline/debug/app-offline-debug.apk
 ```
+
+- There are two builds: `offline`, with no network permission, and `lan`, which adds the Ollama features (`assembleLanDebug`, `app/build/outputs/apk/lan/debug/app-lan-debug.apk`). They share an application ID, so either installs over the other. The flavour manifests in `app/src/offline` and `app/src/lan` set the network permissions.
 
 - Without the model, the app still builds and runs but reads with ML Kit only, and *Read with manga-ocr* says the model is missing.
 - The build includes native libraries for arm64-v8a, for devices, and x86_64, for the emulator.
-- `bash ./gradlew testDebugUnitTest --tests 'ca.fuwafuwa.gaku.Ocr.*'` runs the OCR tests for reading order and furigana. `GenerateDictionary` isn't a real test: it builds the dictionary database from a JMdict XML file at a hard-coded Windows path, so it fails elsewhere.
-- `bash ./gradlew assembleRelease` builds a minified, unsigned APK. Sign it with your own key using `apksigner`. R8's keep rules for ORMLite and ONNX Runtime are in `app/proguard-rules.pro`. R8 mistakes only show up at runtime, so try a release build on a device after changing dependencies.
+- `bash ./gradlew testOfflineDebugUnitTest --tests 'ca.fuwafuwa.gaku.Ocr.*' --tests 'ca.fuwafuwa.gaku.Llm.*'` runs the OCR tests for reading order and furigana, and the LLM client's tests. `GenerateDictionary` isn't a real test: it builds the dictionary database from a JMdict XML file at a hard-coded Windows path, so it fails elsewhere.
+- `bash ./gradlew assembleOfflineRelease` (or `assembleLanRelease`) builds a minified, unsigned APK. Sign it with your own key using `apksigner`. R8's keep rules for ORMLite and ONNX Runtime are in `app/proguard-rules.pro`. R8 mistakes only show up at runtime, so try a release build on a device after changing dependencies.
 - `tools/similar_kanji.py` rebuilds `app/src/main/assets/similar_kanji.txt` from Yencken's `jyouyou__strokeEditDistance.csv`.
 
 ## Credits and licences

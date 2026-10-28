@@ -42,6 +42,22 @@ android {
         buildConfig true
     }
 
+    // offline has no network permission at all. lan can also ask an Ollama server on the local network
+    // to translate or explain the text (BuildConfig.LLM); both share one applicationId, so either
+    // installs over the other.
+    flavorDimensions 'network'
+    productFlavors {
+        offline {
+            dimension 'network'
+            buildConfigField 'boolean', 'LLM', 'false'
+        }
+        lan {
+            dimension 'network'
+            versionNameSuffix '-lan'
+            buildConfigField 'boolean', 'LLM', 'true'
+        }
+    }
+
     buildTypes {
         release {
             debuggable false

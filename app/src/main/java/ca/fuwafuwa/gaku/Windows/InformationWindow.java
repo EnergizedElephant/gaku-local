@@ -32,7 +32,10 @@ import ca.fuwafuwa.gaku.Constants;
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized;
 import ca.fuwafuwa.gaku.GakuTools;
 import ca.fuwafuwa.gaku.LangUtils;
+import ca.fuwafuwa.gaku.Llm.OllamaClient;
+import ca.fuwafuwa.gaku.Llm.Prompts;
 import ca.fuwafuwa.gaku.MainService;
+import ca.fuwafuwa.gaku.Prefs;
 import ca.fuwafuwa.gaku.R;
 import ca.fuwafuwa.gaku.Search.JmSearchResult;
 import ca.fuwafuwa.gaku.Search.SearchInfo;
@@ -78,6 +81,15 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     private TextView mReadAgainButton;
     // The OCR result shown, to read again with the other reader; null for text looked up from another app
     private DisplayDataOcr mOcrResult;
+    // lan build: Google and Ask, shown when an Ollama server is set, and the LLM's translation
+    private View mGoogleButton;
+    private View mAskButton;
+    private TextView mLlmTranslation;
+    private OllamaClient.Call mLlmCall;
+    // For the chat: the finished translation, and the word last looked up with its entry as shown
+    private String mTranslation;
+    private String mLookedUpWord;
+    private String mLookedUpEntry;
 
     public InformationWindow(Context context, WindowCoordinator windowCoordinator)
     {
@@ -101,7 +113,12 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
 
         mPrevButton.setOnClickListener(v -> scroll(false));
         mNextButton.setOnClickListener(v -> scroll(true));
-        window.findViewById(R.id.info_translate).setOnClickListener(v -> sendToTranslate());
+        window.findViewById(R.id.info_translate).setOnClickListener(v -> translate());
+        mGoogleButton = window.findViewById(R.id.info_google);
+        mGoogleButton.setOnClickListener(v -> sendToTranslate());
+        mAskButton = window.findViewById(R.id.info_ask);
+        mAskButton.setOnClickListener(v -> openChat());
+        mLlmTranslation = window.findViewById(R.id.info_llm_translation);
         window.findViewById(R.id.info_copy).setOnClickListener(v -> copyText());
         mReadAgainButton = window.findViewById(R.id.info_read_again);
         mReadAgainButton.setOnClickListener(v -> {
@@ -133,6 +150,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     public void setResult(DisplayData displayData)
     {
         mSearchedChars = new ArrayList<>();
+        clearLlm();
 
         mKanjiGrid.removeAllViews();
         mKanjiGrid.setText(displayData);
@@ -148,6 +166,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
 
     public void setResult(String textResult)
     {
+        clearLlm();
         mOcrResult = null;
         mReadAgainButton.setVisibility(View.GONE);
         // Instant mode is about the capture box, and the service may not even be running
@@ -188,7 +207,75 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     }
 
     /**
-     * Opens Google Translate's pop-up with the recognised text. Gaku itself has no network access;
+     * With an Ollama server set (lan build), shows the LLM's translation above the dictionary results;
+     * otherwise opens Google Translate.
+     */
+    private void translate()
+    {
+        Prefs prefs = GakuTools.getPrefs(context);
+        if (!prefs.getLlmConfigured())
+        {
+            sendToTranslate();
+            return;
+        }
+
+        clearLlm();
+        mLlmTranslation.setVisibility(View.VISIBLE);
+        mLlmTranslation.setText("Translating…");
+
+        StringBuilder sb = new StringBuilder();
+        mLlmCall = new OllamaClient(prefs.getLlmServer()).chat(prefs.getLlmModel(), Prompts.translationMessages(mKanjiGrid.getText()), new OllamaClient.ChatListener()
+        {
+            @Override
+            public void onThinking()
+            {
+                mLlmTranslation.setText("Thinking…");
+            }
+
+            @Override
+            public void onText(@NotNull String text)
+            {
+                sb.append(text);
+                mLlmTranslation.setText(sb.toString().trim());
+            }
+
+            @Override
+            public void onDone()
+            {
+                mTranslation = sb.toString().trim();
+                if (mTranslation.isEmpty()) mLlmTranslation.setText("The model didn't answer");
+            }
+
+            @Override
+            public void onError(@NotNull String message)
+            {
+                mLlmTranslation.setText(message);
+            }
+        });
+    }
+
+    /** Opens the chat window about the text, with the word last looked up and the translation, if any. */
+    private void openChat()
+    {
+        LlmChatWindow chatWindow = windowCoordinator.getWindowOfType(Constants.WINDOW_LLM_CHAT);
+        chatWindow.open(mKanjiGrid.getText(), mLookedUpWord, mLookedUpEntry, mTranslation);
+    }
+
+    /** Stops any translation in progress and hides the last one, which may be for other text. */
+    private void clearLlm()
+    {
+        if (mLlmCall != null)
+        {
+            mLlmCall.cancel();
+            mLlmCall = null;
+        }
+        mTranslation = null;
+        mLlmTranslation.setText("");
+        mLlmTranslation.setVisibility(View.GONE);
+    }
+
+    /**
+     * Opens Google Translate's pop-up with the recognised text. Gaku itself never contacts Google;
      * Translate only gets the text when this button is pressed.
      */
     private void sendToTranslate()
@@ -354,7 +441,14 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         mDictResults.setText("");
         // Shown again for new results, or after a character was swapped, edited or deleted
         setSelectedChar(null);
-        updateInstantButton(GakuTools.getPrefs(context).getInstantModeSetting());
+        clearLlm();
+        mLookedUpWord = null;
+        mLookedUpEntry = null;
+        Prefs prefs = GakuTools.getPrefs(context);
+        updateInstantButton(prefs.getInstantModeSetting());
+        // The server can be set or cleared on the start screen while Gaku runs
+        mGoogleButton.setVisibility(prefs.getLlmConfigured() ? View.VISIBLE : View.GONE);
+        mAskButton.setVisibility(prefs.getLlmConfigured() ? View.VISIBLE : View.GONE);
 
         window.setVisibility(View.VISIBLE);
         params.y = 0; // onScroll changes this value
@@ -365,6 +459,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     @Override
     public void hide()
     {
+        clearLlm();
         window.animate().translationY(-getRealDisplaySize().y).setListener(new AnimatorListenerAdapter() {
             @Override
             public void onAnimationEnd(Animator animation)
@@ -390,6 +485,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     @Override
     public void stop()
     {
+        clearLlm();
         mSearcher.unregisterCallback();
         super.stop();
     }
@@ -495,6 +591,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         if (results.size() > 0)
         {
             displayResults(results);
+            mLookedUpWord = results.get(0).getWord();
 
             if (search.getSquareChar().getUserTouched() && !mSearchedChars.contains(search.getSquareChar()))
             {
@@ -563,6 +660,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         }
 
         mDictResults.setText(sb.toString());
+        mLookedUpEntry = sb.toString();
     }
 
     private String getMeaning(EntryOptimized entry)

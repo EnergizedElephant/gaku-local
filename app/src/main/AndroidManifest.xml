@@ -14,11 +14,8 @@
     <!-- REQUIRED for Android 13+ to show the Foreground Service Notification -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Fully offline: strip the network permissions that libraries merge in (ML Kit's datatransport and
-         ONNX Runtime's telemetry both ask for them) -->
-    <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <!-- The network permissions are set by each flavour's manifest: src/offline strips them all, src/lan
+         adds INTERNET for the Ollama server -->
 
     <application
         android:allowBackup="false"

@@ -18,6 +18,9 @@ const val GAKU_PREF_INSTANT_MODE = "InstantMode"
 const val GAKU_PREF_FIRST_LAUNCH = "FirstLaunch"
 // Android 13+ notification permission: asked once, since Gaku works without it
 const val GAKU_PREF_NOTIFICATIONS_ASKED = "NotificationsAsked"
+// The Ollama server, as typed, and the model chosen (lan build)
+const val GAKU_PREF_LLM_SERVER = "LlmServer"
+const val GAKU_PREF_LLM_MODEL = "LlmModel"
 
 const val EXTRA_PROJECTION_RESULT_CODE = "ca.fuwafuwa.gaku.PROJECTION_RESULT_CODE"
 const val EXTRA_PROJECTION_RESULT_INTENT = "ca.fuwafuwa.gaku.PROJECTION_RESULT_INTENT"
@@ -28,6 +31,7 @@ const val WINDOW_EDIT = "WINDOW_EDIT"
 const val WINDOW_INSTANT_KANJI = "WINDOW_INSTANT_KANJI"
 const val WINDOW_KANJI_CHOICE = "WINDOW_KANJI_CHOICE"
 const val WINDOW_HISTORY = "WINDOW_HISTORY"
+const val WINDOW_LLM_CHAT = "WINDOW_LLM_CHAT"
 
 const val GAKU_CHANNEL_ID = "gaku_notification_channel_id"
 const val GAKU_CHANNEL_NAME = "Show Gaku Notification"

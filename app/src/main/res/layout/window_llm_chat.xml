@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A conversation with the LLM about one sentence (lan build, LlmChatWindow) -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="10dp"
+        android:padding="15dp"
+        android:background="@drawable/bg_solid_border_corners_0_white_black_round">
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/chat_sentence"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:maxLines="3"
+                android:ellipsize="end"
+                android:textSize="18sp"
+                android:textColor="@android:color/black" />
+
+            <TextView
+                android:id="@+id/chat_close"
+                style="@style/InfoButton"
+                android:layout_marginEnd="0dp"
+                android:text="✕" />
+
+        </LinearLayout>
+
+        <ScrollView
+            android:id="@+id/chat_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginTop="8dp"
+            android:scrollbars="vertical">
+
+            <LinearLayout
+                android:id="@+id/chat_messages"
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+
+        </ScrollView>
+
+        <!-- Questions to ask with one tap (Prompts.QUICK_QUESTIONS), filled in code -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:id="@+id/chat_quick"
+                android:orientation="horizontal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+        </HorizontalScrollView>
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:gravity="bottom"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp">
+
+            <!-- flagNoPersonalizedLearning: the keyboard shouldn't learn from what's asked -->
+            <EditText
+                android:id="@+id/chat_input"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:padding="10dp"
+                android:minHeight="40dp"
+                android:maxLines="4"
+                android:inputType="textCapSentences|textMultiLine"
+                android:imeOptions="flagNoExtractUi|flagNoPersonalizedLearning"
+                android:hint="Ask about this sentence"
+                android:textSize="16sp"
+                android:textColor="@android:color/black"
+                android:textColorHint="#FF888888"
+                android:background="@drawable/bg_solid_border_corners_0_white_black_round" />
+
+            <TextView
+                android:id="@+id/chat_send"
+                style="@style/InfoButton"
+                android:layout_marginEnd="0dp"
+                android:text="Send" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>
