@@ -26,12 +26,6 @@ android {
         targetSdk 34
         versionCode version[0] * 10000 + version[1] * 100 + version[2]
         versionName version.join('.')
-
-        // 64-bit ARM for devices, x86_64 for the emulator: each native library (ML Kit, ONNX Runtime)
-        // would otherwise ship for four ABIs
-        ndk {
-            abiFilters 'arm64-v8a', 'x86_64'
-        }
     }
 
     // Stored uncompressed so the manga-ocr model can be memory-mapped from the APK instead of copied
@@ -67,9 +61,19 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // 64-bit ARM only. Build with -Px86_64 to try a release on the emulator
+            ndk {
+                abiFilters 'arm64-v8a'
+                if (project.hasProperty('x86_64')) abiFilters 'x86_64'
+            }
         }
         debug {
             debuggable true
+            // x86_64 for the emulator too. Each native library (ML Kit, ONNX Runtime) would otherwise
+            // ship for four ABIs
+            ndk {
+                abiFilters 'arm64-v8a', 'x86_64'
+            }
         }
     }
     packagingOptions {

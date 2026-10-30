@@ -16,7 +16,7 @@ adb install -r app/build/outputs/apk/offline/debug/app-offline-debug.apk
 
 - There are two builds: `offline`, with no network permission, and `lan`, which adds the Ollama features (`assembleLanDebug`, `app/build/outputs/apk/lan/debug/app-lan-debug.apk`). They share an application ID, so either installs over the other.
 - Without the model, the app still builds and runs, but reads with ML Kit only, and *Read with manga-ocr* says the model is missing.
-- The build includes native libraries for arm64-v8a, for devices, and x86_64, for the emulator. 32-bit devices aren't supported.
+- Debug builds include native libraries for arm64-v8a, for devices, and x86_64, for the emulator. Release builds have arm64-v8a only: add `-Px86_64` to the Gradle command to try one on the emulator. 32-bit devices aren't supported.
 
 ## Tests
 
