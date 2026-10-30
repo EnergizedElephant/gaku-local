@@ -64,7 +64,7 @@ class TutorialFragment : Fragment()
     {
         super.onResume()
 
-        mVideoView.setVideoURI(Uri.parse("android.resource://ca.fuwafuwa.gaku/${getVideoForSectionNumber(mPos)}"))
+        mVideoView.setVideoURI(Uri.parse("android.resource://${requireContext().packageName}/${getVideoForSectionNumber(mPos)}"))
         mVideoView.setOnPreparedListener { it.isLooping = true }
         mVideoView.start()
     }
