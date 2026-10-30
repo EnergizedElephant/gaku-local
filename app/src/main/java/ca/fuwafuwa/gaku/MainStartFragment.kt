@@ -52,9 +52,12 @@ class MainStartFragment : Fragment()
 
     // lan build only
     private lateinit var llmServerText : EditText
+    private lateinit var llmApiKeyText : EditText
     private lateinit var llmModelSpinner : Spinner
     private lateinit var llmStatusText : TextView
     private var llmCall : OllamaClient.Call? = null
+    // Set by Connect: the server is outside the local network and reached over plain http
+    private var llmUnencrypted = false
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
                               savedInstanceState: Bundle?): View?
@@ -116,26 +119,31 @@ class MainStartFragment : Fragment()
     }
 
     /**
-     * The lan build's Ollama settings. Connect lists the server's models and saves the server; the
-     * model chosen is saved too. Clearing the server and tapping Connect turns the LLM off again.
+     * The lan build's Ollama settings. Connect lists the server's models and saves the server and its
+     * API key; the model chosen is saved too. Clearing the server and tapping Connect turns the LLM off
+     * again.
      */
     private fun setupLlm()
     {
         rootView.findViewById<View>(R.id.llm_settings).visibility = View.VISIBLE
         llmServerText = rootView.findViewById(R.id.llm_server)
+        llmApiKeyText = rootView.findViewById(R.id.llm_api_key)
         llmModelSpinner = rootView.findViewById(R.id.llm_model)
         llmStatusText = rootView.findViewById(R.id.llm_status)
 
         val prefs = getPrefs(mainActivity)
         llmServerText.setText(prefs.llmServer)
+        llmApiKeyText.setText(prefs.llmApiKey)
         // Until Connect lists the rest, only the saved model
         showModels(listOf(prefs.llmModel).filter { it.isNotEmpty() }, prefs.llmModel)
 
         rootView.findViewById<Button>(R.id.llm_connect).setOnClickListener { connectLlm() }
-        llmServerText.setOnEditorActionListener { _, actionId, _ ->
+        val connectOnDone = TextView.OnEditorActionListener { _, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) connectLlm()
             false
         }
+        llmServerText.setOnEditorActionListener(connectOnDone)
+        llmApiKeyText.setOnEditorActionListener(connectOnDone)
 
         llmModelSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener
         {
@@ -151,21 +159,25 @@ class MainStartFragment : Fragment()
     private fun connectLlm()
     {
         val server = llmServerText.text.toString().trim()
+        val apiKey = llmApiKeyText.text.toString().trim()
         llmCall?.cancel()
+        llmUnencrypted = false
 
         if (server.isEmpty())
         {
-            llmPrefs().edit().remove(GAKU_PREF_LLM_SERVER).remove(GAKU_PREF_LLM_MODEL).apply()
+            llmPrefs().edit().remove(GAKU_PREF_LLM_SERVER).remove(GAKU_PREF_LLM_API_KEY).remove(GAKU_PREF_LLM_MODEL).apply()
+            llmApiKeyText.setText("")
             showModels(emptyList(), "")
             return
         }
 
         llmStatusText.setText(R.string.llm_status_connecting)
-        llmCall = OllamaClient(server).listModels(object : OllamaClient.ModelsListener
+        llmCall = OllamaClient(server, apiKey).listModels(object : OllamaClient.ModelsListener
         {
-            override fun onModels(models: List<String>)
+            override fun onModels(models: List<String>, unencrypted: Boolean)
             {
-                llmPrefs().edit().putString(GAKU_PREF_LLM_SERVER, server).apply()
+                llmUnencrypted = unencrypted
+                llmPrefs().edit().putString(GAKU_PREF_LLM_SERVER, server).putString(GAKU_PREF_LLM_API_KEY, apiKey).apply()
                 val saved = getPrefs(mainActivity).llmModel
                 showModels(models, if (saved in models) saved else models.firstOrNull() ?: "")
             }
@@ -195,12 +207,13 @@ class MainStartFragment : Fragment()
         else llmPrefs().edit().putString(GAKU_PREF_LLM_MODEL, model).apply()
 
         val prefs = getPrefs(mainActivity)
-        llmStatusText.text = when
+        val status = when
         {
             prefs.llmConfigured -> getString(R.string.llm_status_using, model)
             prefs.llmServer.isNotEmpty() -> getString(R.string.llm_status_no_models)
             else -> getString(R.string.llm_status_not_set)
         }
+        llmStatusText.text = if (llmUnencrypted && prefs.llmServer.isNotEmpty()) "$status ${getString(R.string.llm_status_unencrypted)}" else status
     }
 
     private fun llmPrefs() = mainActivity.getSharedPreferences(GAKU_PREF_FILE, Context.MODE_PRIVATE)

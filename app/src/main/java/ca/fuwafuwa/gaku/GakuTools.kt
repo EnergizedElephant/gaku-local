@@ -24,8 +24,9 @@ private val gson = GsonBuilder().setPrettyPrinting().disableHtmlEscaping().exclu
 
 data class Prefs(val instantModeSetting: Boolean,
                  val showHideSetting: Boolean,
-                 // The Ollama server and model (lan build); empty until set on the start screen
+                 // The Ollama server, its API key and model (lan build); empty until set on the start screen
                  val llmServer: String,
+                 val llmApiKey: String,
                  val llmModel: String)
 {
     val llmConfigured: Boolean
@@ -42,6 +43,7 @@ fun getPrefs(context: Context): Prefs
             prefs.getBoolean(GAKU_PREF_INSTANT_MODE, true),
             prefs.getBoolean(GAKU_PREF_SHOW_HIDE, true),
             prefs.getString(GAKU_PREF_LLM_SERVER, "")!!,
+            prefs.getString(GAKU_PREF_LLM_API_KEY, "")!!,
             prefs.getString(GAKU_PREF_LLM_MODEL, "")!!)
 }
 

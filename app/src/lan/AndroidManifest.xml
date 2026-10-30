@@ -2,8 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Only for the Ollama server set on the start screen, and OllamaClient refuses addresses outside
-         the local network. ML Kit's and ONNX Runtime's telemetry stay unregistered (main manifest). -->
+    <!-- Only for the Ollama server set on the start screen, which OllamaClient contacts when Connect,
+         Translate or Ask is tapped. ML Kit's and ONNX Runtime's telemetry stay unregistered (main
+         manifest). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />

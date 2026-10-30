@@ -124,7 +124,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:hint="192.168.1.10:11434"
+                        android:hint="192.168.1.10 or https://…"
                         android:imeOptions="actionDone|flagNoPersonalizedLearning"
                         android:inputType="textUri"
                         android:singleLine="true" />
@@ -137,6 +137,17 @@
                         android:text="@string/llm_button_connect" />
 
                 </LinearLayout>
+
+                <!-- Sent as a bearer token, for hosted servers that need one -->
+                <EditText
+                    android:id="@+id/llm_api_key"
+                    android:theme="@style/ThemeOverlay.AppCompat.Light"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="API key (optional)"
+                    android:imeOptions="actionDone|flagNoPersonalizedLearning"
+                    android:inputType="textPassword"
+                    android:singleLine="true" />
 
                 <!-- The server's models, once Connect has listed them -->
                 <Spinner

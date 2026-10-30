@@ -18,17 +18,20 @@ import java.net.UnknownHostException
 class LlmMessage(val role: String, val content: String)
 
 /**
- * Talks to an Ollama server on the local network (lan build only), through its native API. [server] is
- * as typed on the start screen: "192.168.1.10", "192.168.1.10:11434" or "http://host:port".
+ * Talks to an Ollama server (lan build only) through its native API, wherever it is: on the local
+ * network, over Tailscale or hosted. [server] is as typed on the start screen: "192.168.1.10",
+ * "192.168.1.10:11434", "http://host:port" or "https://host/path". A non-blank [apiKey] is sent as a
+ * bearer token, for servers that need one.
  *
  * Each request runs on its own thread and reports on the main thread, until it ends or is cancelled.
  * Nothing sent or received is logged.
  */
-class OllamaClient(private val server: String)
+class OllamaClient(private val server: String, private val apiKey: String)
 {
     interface ModelsListener
     {
-        fun onModels(models: List<String>)
+        /** [unencrypted]: the server is outside the local network and reached over plain http. */
+        fun onModels(models: List<String>, unencrypted: Boolean)
         fun onError(message: String)
     }
 
@@ -48,6 +51,7 @@ class OllamaClient(private val server: String)
         internal var cancelled = false
         @Volatile
         internal var connection: HttpURLConnection? = null
+        internal var unencrypted = false
 
         fun cancel()
         {
@@ -68,7 +72,7 @@ class OllamaClient(private val server: String)
             val connection = open(call, "/api/tags", LIST_TIMEOUT_MILLIS)
             val json = JsonParser.parseString(readAll(connection)).asJsonObject
             val models = (json.getAsJsonArray("models") ?: throw JsonParseException("No models")).map { it.asJsonObject.get("name").asString }.sorted()
-            call.post { listener.onModels(models) }
+            call.post { listener.onModels(models, call.unencrypted) }
         }
     }
 
@@ -138,25 +142,19 @@ class OllamaClient(private val server: String)
         return call
     }
 
-    /** Connects to [path] on the server, after checking it's on the local network, and sends [body] if given. */
+    /** Connects to [path] under the server's URL and sends [body] if given. */
     private fun open(call: Call, path: String, readTimeoutMillis: Int, body: String? = null): HttpURLConnection
     {
         val url = parseServer(server) ?: throw ServerException("\"$server\" isn't a server address")
-        val addresses = InetAddress.getAllByName(url.host)
-        if (!addresses.all { isLocalAddress(it) })
-        {
-            throw ServerException("${url.host} isn't on the local network, so Gaku won't connect to it")
-        }
+        call.unencrypted = isUnencryptedOutside(url, InetAddress.getAllByName(url.host))
 
-        // Plain HTTP connects to the address just checked, so a second DNS look-up can't send it
-        // elsewhere. HTTPS needs the name to check the certificate.
-        val host = if (url.protocol == "http") addresses[0].hostAddress else url.host
-        val connection = URL(url.protocol, host, url.port, path).openConnection() as HttpURLConnection
+        val connection = URL(url.protocol, url.host, url.port, url.path + path).openConnection() as HttpURLConnection
         call.connection = connection
         if (call.cancelled) throw IOException("Cancelled")
 
         connection.connectTimeout = CONNECT_TIMEOUT_MILLIS
         connection.readTimeout = readTimeoutMillis
+        if (apiKey.isNotBlank()) connection.setRequestProperty("Authorization", "Bearer ${apiKey.trim()}")
         if (body != null)
         {
             connection.requestMethod = "POST"
@@ -165,6 +163,10 @@ class OllamaClient(private val server: String)
             connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
         }
 
+        if (connection.responseCode == 401 || connection.responseCode == 403)
+        {
+            throw ServerException(if (apiKey.isBlank()) "${url.host} needs an API key" else "${url.host} didn't accept the API key")
+        }
         if (connection.responseCode !in 200..299)
         {
             // Ollama explains errors as {"error": "..."}
@@ -213,7 +215,11 @@ class OllamaClient(private val server: String)
 
         private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
-        /** The server's root URL from what was typed, with http and port 11434 if not given; null if it isn't one. */
+        /**
+         * The server's URL from what was typed; null if it isn't one. No scheme means http. With no port,
+         * http gets Ollama's 11434 and https gets 443, where a hosted server listens. A path is kept, for
+         * a server behind a proxy, except a trailing /api, which each request adds.
+         */
         @JvmStatic
         fun parseServer(text: String): URL?
         {
@@ -225,7 +231,13 @@ class OllamaClient(private val server: String)
                 val url = URL(if ("://" in trimmed) trimmed else "http://$trimmed")
                 if (url.protocol != "http" && url.protocol != "https") return null
                 if (url.host.isNullOrEmpty()) return null
-                URL(url.protocol, url.host, if (url.port == -1) DEFAULT_PORT else url.port, "")
+                val port = when
+                {
+                    url.port != -1 -> url.port
+                    url.protocol == "https" -> 443
+                    else -> DEFAULT_PORT
+                }
+                URL(url.protocol, url.host, port, url.path.removeSuffix("/api").trimEnd('/'))
             }
             catch (e: MalformedURLException)
             {
@@ -233,9 +245,15 @@ class OllamaClient(private val server: String)
             }
         }
 
+        /** Whether text sent to [url] would cross the internet unencrypted: plain http, and not all local. */
+        internal fun isUnencryptedOutside(url: URL, addresses: Array<InetAddress>): Boolean
+        {
+            return url.protocol == "http" && !addresses.all { isLocalAddress(it) }
+        }
+
         /**
          * Loopback, private (10/8, 172.16/12, 192.168/16), link-local, IPv6 unique local (fc00::/7), or
-         * carrier-grade NAT (100.64/10, which Tailscale uses).
+         * carrier-grade NAT (100.64/10, which Tailscale uses). Only used to warn about plain http.
          */
         internal fun isLocalAddress(address: InetAddress): Boolean
         {

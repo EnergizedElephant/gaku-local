@@ -4,7 +4,7 @@ A privacy-hardened fork of [Gaku](https://github.com/ExecuteOrd66/Gaku), a Japan
 
 The app is still called Gaku. This is a personal fork and isn't on any app store, so to use it, [build it yourself](#building).
 
-It comes in two builds. `offline` has no network permission at all. `lan` adds one so that it can also ask an [Ollama](https://ollama.com) server you set up to translate the text or explain it; see [A local LLM, in the lan build](#a-local-llm-in-the-lan-build). Everything else is the same in both.
+It comes in two builds. `offline` has no network permission at all. `lan` adds one so that it can also ask an [Ollama](https://ollama.com) server you choose to translate the text or explain it; see [An LLM, in the lan build](#an-llm-in-the-lan-build). Everything else is the same in both.
 
 ## Where it comes from
 
@@ -34,12 +34,12 @@ Each of this fork's changes is explained in its commit message. They're the comm
 - **Furigana.** With ML Kit, furigana is left out of the text and used to correct the kanji beside it, matching inflected words by their dictionary form.
 - **Fixing misreads again.** Each character offers alternatives: manga-ocr's next guesses, visually similar kanji from Lars Yencken's data, and look-alike kana. The edit window shows the character in context.
 
-### A local LLM, in the lan build
+### An LLM, in the lan build
 
-- **Two builds.** `offline` is the app as described everywhere else here, with no network permission. `lan` adds one, so it can ask an [Ollama](https://ollama.com) server on your own network to translate the text or explain it.
+- **Two builds.** `offline` is the app as described everywhere else here, with no network permission. `lan` adds one, so it can ask an [Ollama](https://ollama.com) server to translate the text or explain it.
 - **Translation from your own model.** With a server set, *Translate* shows the model's translation above the dictionary results, and *Google* opens Google Translate instead.
 - **Ask about a sentence.** *Ask* opens a chat about the text. The model is also told the word you last looked up, its dictionary entry and the translation, if any. Buttons ask for the grammar, a word-by-word breakdown or the nuance, and you can type follow-up questions.
-- **Local network only.** The lan build refuses servers outside private, link-local and Tailscale addresses, and only connects when you tap *Connect*, *Translate* or *Ask*.
+- **Any Ollama server.** It can be on your own network, reached over Tailscale, or hosted, with an optional API key. Gaku only connects when you tap *Connect*, *Translate* or *Ask*. Plain `http://` to a server outside your own network works, but the start screen warns that the text would cross the internet unencrypted.
 
 ### Capture
 
@@ -70,7 +70,7 @@ Each of this fork's changes is explained in its commit message. They're the comm
 - Gaku only captures the screen while it's shown. When it's hidden it keeps the capture session but takes no frames, so Android's screen-sharing indicator stays on until you stop Gaku.
 - Captures and recognised text stay in memory. They're never written to storage or logged.
 - Reading and the dictionary run on the device. The offline build has no internet permission.
-- In the lan build, text goes to your Ollama server when you tap *Translate* or *Ask*: the recognised text, the word you last looked up with its dictionary entry, and what you type in the chat. Conversations stay in memory and end when you open another sentence.
+- In the lan build, text goes to the Ollama server you set when you tap *Translate* or *Ask*: the recognised text, the word you last looked up with its dictionary entry, and what you type in the chat. Conversations stay in memory and end when you open another sentence. The server's address and API key are kept in Gaku's private settings, which are excluded from backup.
 - Otherwise, text leaves the device only when you open Google Translate, which gets the text, or when you copy it.
 - One exception: when you use *Read with ML Kit*, ML Kit can report usage to Google Play services, which has its own network access. From its code, these reports are metadata such as call timings, not images or text.
 
@@ -92,12 +92,12 @@ The older gestures still work: on a character, swipe down for alternatives, up a
 
 **Showing, hiding and stopping.** Use the start screen, the notification or the Quick Settings tile. Turning the screen off hides Gaku. *Stop* ends the capture session, and *Start* asks for consent again.
 
-**A local LLM (lan build).** Run Ollama where the tablet can reach it, listening on the network rather than only on its own machine (`OLLAMA_HOST=0.0.0.0`). On Gaku's start screen, type the server's address, such as `192.168.1.10` (port 11434 is assumed), tap *Connect* and choose a model. To turn it off, clear the address and tap *Connect*.
+**An LLM (lan build).** Run Ollama where the device can reach it, listening on the network rather than only on its own machine (`OLLAMA_HOST=0.0.0.0`). On Gaku's start screen, type the server's address, such as `192.168.1.10` (port 11434 is assumed for http) or `https://ollama.example.com` (port 443 for https; a path such as `/ollama` behind a proxy is kept). Add the API key if the server needs one; it's sent as a bearer token. Tap *Connect* and choose a model. To turn it off, clear the address and tap *Connect*.
 
 If the tablet and the server are on different networks, there are two other ways to connect:
 
 - **Over USB.** On the computer running Ollama, run `adb reverse tcp:11434 tcp:11434` and set the server to `127.0.0.1`. This works until the cable is unplugged.
-- **With [Tailscale](https://tailscale.com).** Gaku accepts Tailscale addresses (100.64.0.0/10). Rather than putting the tablet in your own tailnet, sign it into a separate Tailscale account and share just the server with that account. Then, in your access policy, allow that account to reach only port 11434 on the server. Tailscale's default policy lets everything in (`"src": ["*"]`), and that includes accounts you've shared with, so narrow it to `autogroup:member`. If your rules name the server by a host defined in the policy, check that the host has the server's current Tailscale address.
+- **With [Tailscale](https://tailscale.com).** Rather than putting the tablet in your own tailnet, sign it into a separate Tailscale account and share just the server with that account. Then, in your access policy, allow that account to reach only port 11434 on the server. Tailscale's default policy lets everything in (`"src": ["*"]`), and that includes accounts you've shared with, so narrow it to `autogroup:member`. If your rules name the server by a host defined in the policy, check that the host has the server's current Tailscale address.
 
 **Text you can select.** Select Japanese text in any app and choose *Gaku* from the menu, or share it to Gaku, to look it up without OCR.
 

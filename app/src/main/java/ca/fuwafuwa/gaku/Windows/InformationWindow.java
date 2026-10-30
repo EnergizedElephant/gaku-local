@@ -233,7 +233,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         mLlmTranslation.setText("Translating…");
 
         StringBuilder sb = new StringBuilder();
-        mLlmCall = new OllamaClient(prefs.getLlmServer()).chat(prefs.getLlmModel(), Prompts.translationMessages(mKanjiGrid.getText()), new OllamaClient.ChatListener()
+        mLlmCall = new OllamaClient(prefs.getLlmServer(), prefs.getLlmApiKey()).chat(prefs.getLlmModel(), Prompts.translationMessages(mKanjiGrid.getText()), new OllamaClient.ChatListener()
         {
             @Override
             public void onThinking()

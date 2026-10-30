@@ -119,7 +119,7 @@ class LlmChatWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
         mAnswer = StringBuilder()
         mSendButton.text = "Stop"
 
-        mCall = OllamaClient(prefs.llmServer).chat(prefs.llmModel, mMessages.toList(), object : OllamaClient.ChatListener
+        mCall = OllamaClient(prefs.llmServer, prefs.llmApiKey).chat(prefs.llmModel, mMessages.toList(), object : OllamaClient.ChatListener
         {
             override fun onThinking()
             {

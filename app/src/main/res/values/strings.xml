@@ -17,8 +17,9 @@
 
     <!-- The start screen's Ollama settings, lan build only (MainStartFragment.setupLlm) -->
     <string name="llm_button_connect">Connect</string>
-    <string name="llm_status_not_set">Type the address of an Ollama server on your network and tap Connect. Until then, Translate opens Google Translate.</string>
+    <string name="llm_status_not_set">Type the address of an Ollama server and tap Connect. Until then, Translate opens Google Translate.</string>
     <string name="llm_status_connecting">Connecting…</string>
     <string name="llm_status_no_models">The server has no models. Pull one with \"ollama pull\", then Connect again.</string>
+    <string name="llm_status_unencrypted">Text goes to this server unencrypted. Use https:// if it supports it.</string>
     <string name="llm_status_using">Translate and Ask use %1$s. Text is only sent when you tap them.</string>
 </resources>

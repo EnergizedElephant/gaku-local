@@ -18,8 +18,9 @@ const val GAKU_PREF_INSTANT_MODE = "InstantMode"
 const val GAKU_PREF_FIRST_LAUNCH = "FirstLaunch"
 // Android 13+ notification permission: asked once, since Gaku works without it
 const val GAKU_PREF_NOTIFICATIONS_ASKED = "NotificationsAsked"
-// The Ollama server, as typed, and the model chosen (lan build)
+// The Ollama server, as typed, its API key if it needs one, and the model chosen (lan build)
 const val GAKU_PREF_LLM_SERVER = "LlmServer"
+const val GAKU_PREF_LLM_API_KEY = "LlmApiKey"
 const val GAKU_PREF_LLM_MODEL = "LlmModel"
 // Where the capture box was last left, in screen pixels
 const val GAKU_PREF_BOX_X = "BoxX"
