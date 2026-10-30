@@ -51,8 +51,8 @@ class TutorialActivity : AppCompatActivity()
     {
         private val TAG = TutorialActivity::class.java.name
 
-        // The TutorialFragment sections shown, in order. Section 3 (Kaku's image filter) is gone.
-        private val SECTIONS = listOf(1, 2, 4, 5, 6, 7, 8, 9)
+        // The TutorialFragment sections shown, in order; section 8 (your own model) is the lan build's
+        private val SECTIONS = listOf(1, 2, 3, 4, 5) + (if (BuildConfig.LLM) listOf(8) else emptyList()) + listOf(6, 7)
     }
 }
 

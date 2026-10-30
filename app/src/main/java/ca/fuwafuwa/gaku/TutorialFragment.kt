@@ -77,14 +77,14 @@ class TutorialFragment : Fragment()
     private fun getVideoForSectionNumber(num: Int): Int
     {
         when (num){
-            1 -> return R.raw.tut1
-            2 -> return R.raw.tut2
-            4 -> return R.raw.tut4
-            5 -> return R.raw.tut5
-            6 -> return R.raw.tut6
-            7 -> return R.raw.tut7
-            8 -> return R.raw.tut8
-            9 -> return R.raw.tut9
+            1 -> return R.raw.tut_reading
+            2 -> return R.raw.tut_results
+            3 -> return R.raw.tut_fixing
+            4 -> return R.raw.tut_instant
+            5 -> return R.raw.tut_copy_anki
+            6 -> return R.raw.tut_show_hide
+            7 -> return R.raw.tut_select
+            8 -> return R.raw.tut_llm
         }
 
         return 0
@@ -93,14 +93,14 @@ class TutorialFragment : Fragment()
     private fun getTitleTextForSectionNumber(num: Int): String
     {
         when (num){
-            1 -> return "BASIC USAGE"
-            2 -> return "INSTANT MODE"
-            4 -> return "FIXING A CHARACTER - SWAP"
-            5 -> return "FIXING A CHARACTER - EDIT"
-            6 -> return "FIXING A CHARACTER - DELETE"
-            7 -> return "TRANSLATE, COPY AND ANKI"
-            8 -> return "SHOWING AND HIDING GAKU"
-            9 -> return "SELECT TO LOOKUP"
+            1 -> return "READING TEXT"
+            2 -> return "THE RESULTS"
+            3 -> return "FIXING A MISREAD"
+            4 -> return "INSTANT MODE"
+            5 -> return "TRANSLATE, COPY AND ANKI"
+            6 -> return "SHOWING, HIDING AND STOPPING"
+            7 -> return "TEXT YOU CAN SELECT"
+            8 -> return "YOUR OWN MODEL"
         }
 
         return ""
@@ -109,17 +109,17 @@ class TutorialFragment : Fragment()
     private fun getTextForSectionNumber(num: Int): String
     {
         when (num){
-            1 -> return "Drag the capture window to move it, and drag its bottom right corner to resize it (the resize area is inside the window). Double tap the window to read the text in it with manga-ocr, a reader trained on manga. If the box covers several bubbles or unusual text, try Read with ML Kit in the results. The results open with the first word looked up: tap any other character to look it up from there."
-            2 -> return "With instant mode on, a small capture window is read as soon as you let go of it, with no double tap. It's meant for single words, not sentences. Turn it on or off with the Instant button in the results, or from Gaku's notification."
-            4 -> return "If Gaku misreads a character, tap it in the results. Lookalike characters appear below it: tap one to swap it in. Where the text has furigana, Gaku corrects the kanji beside it from the dictionary, and what it first read stays among the lookalikes. A quick swipe down on the character also shows them."
-            5 -> return "If the right character isn't among the lookalikes, tap the character, then Edit, and type or handwrite it. Handwriting needs a handwriting keyboard, for example Gboard with Japanese handwriting. A quick swipe up and to the left on the character does the same."
-            6 -> return "To remove a character that shouldn't be there, tap it, then Delete. A quick swipe up and to the right does the same; in instant mode the swipe directions may be reversed when there isn't enough room."
-            7 -> return if (BuildConfig.LLM)
-                "Translate opens Google Translate's pop-up with the recognised text, or, with an Ollama server set on the start screen, shows your model's translation; Google then opens Google Translate, and Ask opens a chat about the text. Copy copies it to the clipboard, as does a long press on any character. $ANKI Text only leaves Gaku when you tap one of these buttons."
+            1 -> return "Drag the box over Japanese text, and drag its bottom-right corner to resize it. Double-tap the box to read the text in it. The box stays where you leave it."
+            2 -> return "The results open with the first word looked up. Tap any other character to look it up from there. Gaku reads with manga-ocr, made for manga; if the box covered several bubbles or unusual text, try Read with ML Kit. Close the results with ✕, Back, or a tap outside them."
+            3 -> return "If Gaku misreads a character, tap it: lookalike characters appear below it, and tapping one swaps it in. Where the text has furigana, Gaku corrects the kanji beside it, and what it first read stays among the lookalikes. If the right character isn't there, tap Edit to type or handwrite it (handwriting needs a handwriting keyboard, such as Gboard's). Delete removes a character that shouldn't be there."
+            4 -> return "With instant mode on, a small box is read as soon as you let go of it, with no double-tap: handy for single words. Turn it on or off with Instant in the results, or from Gaku's notification."
+            5 -> return if (BuildConfig.LLM)
+                "Translate shows your model's translation if you've set an Ollama server on the start screen; otherwise it opens Google Translate's pop-up, which Google does when a server is set. Copy copies the text. $ANKI Text only leaves Gaku when you tap one of these."
             else
-                "Translate opens Google Translate's pop-up with the recognised text. Copy copies it to the clipboard, as does a long press on any character. $ANKI Gaku itself has no internet access: Translate only gets the text when you tap the button."
-            8 -> return "Show, hide or shut down Gaku from its notification, which also turns instant mode on or off. Gaku's Quick Settings tile shows or hides it too, and starts it when it isn't running."
-            9 -> return "In the case that you can select the text and don't need OCR, simply select the text and send it to Gaku to bring up the dictionary."
+                "Translate opens Google Translate's pop-up with the text, if Google Translate is installed. Copy copies the text. $ANKI Gaku itself has no internet access: text only leaves it when you tap one of these."
+            6 -> return "Hide the box when you don't need it, and show it again, from Gaku's notification, its Quick Settings tile or the start screen. Turning the screen off hides it too. Stop on the start screen, or Shutdown in the notification, ends screen sharing; starting again asks for it again."
+            7 -> return "If you can select the text, Gaku doesn't need to read it off the screen: select it, then choose Gaku from the menu (it may be under ⋮), or share it to Gaku."
+            8 -> return "With an Ollama server set on the start screen, Translate shows your model's translation, and Ask opens a chat about the text. Its buttons ask for the grammar, a word-by-word breakdown or the nuance, and you can type your own questions. Gaku only contacts the server when you tap these."
         }
 
         return ""
