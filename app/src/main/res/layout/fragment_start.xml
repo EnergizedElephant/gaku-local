@@ -95,6 +95,67 @@
                 android:textSize="12sp"
                 android:visibility="gone" />
 
+            <!-- The Ollama server that Translate and Ask use (lan build only, MainStartFragment.setupLlm) -->
+            <LinearLayout
+                android:id="@+id/llm_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ollama server"
+                    android:textColor="@color/PrimaryDark"
+                    android:textSize="16sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <!-- Light, like the screen: AppTheme is dark, so the text would be white -->
+                    <EditText
+                        android:id="@+id/llm_server"
+                        android:theme="@style/ThemeOverlay.AppCompat.Light"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:hint="192.168.1.10:11434"
+                        android:imeOptions="actionDone|flagNoPersonalizedLearning"
+                        android:inputType="textUri"
+                        android:singleLine="true" />
+
+                    <Button
+                        android:id="@+id/llm_connect"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:text="@string/llm_button_connect" />
+
+                </LinearLayout>
+
+                <!-- The server's models, once Connect has listed them -->
+                <Spinner
+                    android:id="@+id/llm_model"
+                    android:theme="@style/ThemeOverlay.AppCompat.Light"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/llm_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/PrimaryDark"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/gaku_tutorial"
                 android:layout_width="wrap_content"

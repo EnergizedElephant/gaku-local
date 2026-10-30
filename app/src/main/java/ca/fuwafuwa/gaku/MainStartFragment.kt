@@ -1,5 +1,6 @@
 package ca.fuwafuwa.gaku
 
+import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Build
@@ -12,12 +13,18 @@ import android.text.style.ClickableSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.ProgressBar
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import ca.fuwafuwa.gaku.Llm.OllamaClient
 
 
 data class ImgData(val res: Int, val name: String, val nameLink: String, val imgLink: String, val hasImg: Boolean = true)
@@ -42,6 +49,12 @@ class MainStartFragment : Fragment()
     private lateinit var saeView : ImageView
 
     private lateinit var imgData : ImgData
+
+    // lan build only
+    private lateinit var llmServerText : EditText
+    private lateinit var llmModelSpinner : Spinner
+    private lateinit var llmStatusText : TextView
+    private var llmCall : OllamaClient.Call? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?,
                               savedInstanceState: Bundle?): View?
@@ -91,8 +104,106 @@ class MainStartFragment : Fragment()
             refreshStateSoon(300)
         }
 
+        if (BuildConfig.LLM) setupLlm()
+
         return rootView
     }
+
+    override fun onDestroyView()
+    {
+        llmCall?.cancel()
+        super.onDestroyView()
+    }
+
+    /**
+     * The lan build's Ollama settings. Connect lists the server's models and saves the server; the
+     * model chosen is saved too. Clearing the server and tapping Connect turns the LLM off again.
+     */
+    private fun setupLlm()
+    {
+        rootView.findViewById<View>(R.id.llm_settings).visibility = View.VISIBLE
+        llmServerText = rootView.findViewById(R.id.llm_server)
+        llmModelSpinner = rootView.findViewById(R.id.llm_model)
+        llmStatusText = rootView.findViewById(R.id.llm_status)
+
+        val prefs = getPrefs(mainActivity)
+        llmServerText.setText(prefs.llmServer)
+        // Until Connect lists the rest, only the saved model
+        showModels(listOf(prefs.llmModel).filter { it.isNotEmpty() }, prefs.llmModel)
+
+        rootView.findViewById<Button>(R.id.llm_connect).setOnClickListener { connectLlm() }
+        llmServerText.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) connectLlm()
+            false
+        }
+
+        llmModelSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener
+        {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long)
+            {
+                useModel(parent.getItemAtPosition(position) as String)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
+    }
+
+    private fun connectLlm()
+    {
+        val server = llmServerText.text.toString().trim()
+        llmCall?.cancel()
+
+        if (server.isEmpty())
+        {
+            llmPrefs().edit().remove(GAKU_PREF_LLM_SERVER).remove(GAKU_PREF_LLM_MODEL).apply()
+            showModels(emptyList(), "")
+            return
+        }
+
+        llmStatusText.setText(R.string.llm_status_connecting)
+        llmCall = OllamaClient(server).listModels(object : OllamaClient.ModelsListener
+        {
+            override fun onModels(models: List<String>)
+            {
+                llmPrefs().edit().putString(GAKU_PREF_LLM_SERVER, server).apply()
+                val saved = getPrefs(mainActivity).llmModel
+                showModels(models, if (saved in models) saved else models.firstOrNull() ?: "")
+            }
+
+            override fun onError(message: String)
+            {
+                llmStatusText.text = message
+            }
+        })
+    }
+
+    /** Fills the model list with [models], with [selected] chosen and saved. */
+    private fun showModels(models: List<String>, selected: String)
+    {
+        // The spinner's own context has its light theme
+        val adapter = ArrayAdapter(llmModelSpinner.context, android.R.layout.simple_spinner_item, models)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        llmModelSpinner.adapter = adapter
+        llmModelSpinner.visibility = if (models.isEmpty()) View.GONE else View.VISIBLE
+        if (selected in models) llmModelSpinner.setSelection(models.indexOf(selected))
+        useModel(selected)
+    }
+
+    private fun useModel(model: String)
+    {
+        if (model.isEmpty()) llmPrefs().edit().remove(GAKU_PREF_LLM_MODEL).apply()
+        else llmPrefs().edit().putString(GAKU_PREF_LLM_MODEL, model).apply()
+
+        val prefs = getPrefs(mainActivity)
+        llmStatusText.text = when
+        {
+            prefs.llmConfigured -> getString(R.string.llm_status_using, model)
+            prefs.llmServer.isNotEmpty() -> getString(R.string.llm_status_no_models)
+            else -> getString(R.string.llm_status_not_set)
+        }
+    }
+
+    private fun llmPrefs() = mainActivity.getSharedPreferences(GAKU_PREF_FILE, Context.MODE_PRIVATE)
 
     override fun onResume()
     {

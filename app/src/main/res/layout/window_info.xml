@@ -85,6 +85,20 @@
                                 style="@style/InfoButton"
                                 android:text="Translate" />
 
+                            <!-- lan build with an Ollama server set: Translate asks the LLM, so these open
+                                 Google Translate and the chat window -->
+                            <TextView
+                                android:id="@+id/info_google"
+                                style="@style/InfoButton"
+                                android:visibility="gone"
+                                android:text="Google" />
+
+                            <TextView
+                                android:id="@+id/info_ask"
+                                style="@style/InfoButton"
+                                android:visibility="gone"
+                                android:text="Ask" />
+
                             <TextView
                                 android:id="@+id/info_copy"
                                 style="@style/InfoButton"
@@ -174,6 +188,17 @@
                         android:orientation="vertical"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content">
+
+                        <!-- The LLM's translation (lan build), kept while characters are looked up -->
+                        <TextView
+                            android:id="@+id/info_llm_translation"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginBottom="12dp"
+                            android:textColor="@android:color/black"
+                            android:textSize="16sp"
+                            android:visibility="gone" />
+
                         <TextSwitcher
                             android:id="@+id/dict_results"
                             android:measureAllChildren="false"
