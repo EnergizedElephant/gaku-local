@@ -76,6 +76,10 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     private ArrayList<ISquareChar> mSearchedChars = new ArrayList<>();
     // The character last tapped in the grid, which the character buttons act on
     private ISquareChar mSelectedChar;
+    // The text shown, and which of its characters show() looks up: the first for new results, or the
+    // one that was selected when a character was swapped, edited or deleted
+    private DisplayData mDisplayData;
+    private int mSelectIndex;
     private TextView mReadAgainButton;
     // The OCR result shown, to read again with the other reader; null for text looked up from another app
     private DisplayDataOcr mOcrResult;
@@ -134,6 +138,8 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     public void setResult(DisplayData displayData)
     {
         mSearchedChars = new ArrayList<>();
+        mDisplayData = displayData;
+        mSelectIndex = 0;
 
         mKanjiGrid.removeAllViews();
         mKanjiGrid.setText(displayData);
@@ -161,7 +167,9 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         displayData.assignIndicies();
 
         mKanjiGrid.setText(displayData);
-        performSearch(displayData.getSquareChars().get(0));
+        // show() looks up the first character
+        mDisplayData = displayData;
+        mSelectIndex = 0;
 
         mTextOnlyLookup = true;
     }
@@ -377,6 +385,13 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         params.y = 0; // onScroll changes this value
         super.show();
         window.setY(0); // translationY changes this value
+
+        // Look a character up straight away, so its lookalikes, Edit and Delete are already in view
+        if (mDisplayData != null && mDisplayData.getCount() > 0)
+        {
+            List<ISquareChar> chars = mDisplayData.getSquareChars();
+            performSearch(chars.get(Math.min(mSelectIndex, chars.size() - 1)));
+        }
     }
 
     @Override
@@ -538,9 +553,15 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         }
     }
 
+    /**
+     * Called when a character was swapped, edited or deleted, just before show(). Keeps the selection in
+     * the same place: on the new character, or on the next one after a delete. With nothing selected
+     * (after scrolling), it's the first character in view.
+     */
     @Override
     public void recalculateKanjiViews()
     {
+        mSelectIndex = mSelectedChar != null ? mSelectedChar.getIndex() : mKanjiGrid.getOffset();
         mKanjiGrid.recalculateKanjiViews();
     }
 
