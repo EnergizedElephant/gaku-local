@@ -14,7 +14,7 @@ It comes in two builds. `offline` has no network permission at all. `lan` adds o
 | [Gaku](https://github.com/ExecuteOrd66/Gaku) by Carl Oosthuizen, December 2025 | One migration commit: the rename to Gaku, Google ML Kit in place of Tesseract, crash fixes for the edit window, kanji alternatives and rotation, and a build updated for current Android. |
 | gaku-offline, this repo, October 2026 | Everything under [What this fork changes](#what-this-fork-changes). |
 
-Each of this fork's changes is explained in its commit message. They're the commits after Gaku's `5cb8f2e` ("Migrate Kaku to Gaku"), so `git log 5cb8f2e..` lists them.
+Each of this fork's changes is explained in its commit message. They're the commits after Gaku's `18255f5` ("Migrate Kaku to Gaku", tagged `v1.4.00-beta`), so `git log v1.4.00-beta..` lists them.
 
 ## What this fork changes
 
