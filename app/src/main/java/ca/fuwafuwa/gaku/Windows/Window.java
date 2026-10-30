@@ -8,6 +8,7 @@ import android.os.Build;
 import androidx.core.view.GestureDetectorCompat;
 import android.util.Log;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -334,6 +335,18 @@ public abstract class Window implements Stoppable, WindowListener {
                 }
                 return true;
         }
+        return false;
+    }
+
+    /**
+     * Override if your implementing Window should close on Back. Only windows without FLAG_NOT_FOCUSABLE
+     * get key events; for the rest, Back goes to the app underneath.
+     *
+     * @param e The Back key's DOWN or UP event
+     * @return Returns whether the KeyEvent was handled
+     */
+    @Override
+    public boolean onBackKey(KeyEvent e) {
         return false;
     }
 

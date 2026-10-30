@@ -49,8 +49,10 @@ Each of this fork's changes is explained in its commit message. They're the comm
 ### Interface
 
 - **Controls in the app.** The start screen says whether Gaku is off, running or hidden, with Start, Show, Hide and Stop buttons.
+- **The box stays put.** Hiding and showing Gaku, stopping it or restarting the phone no longer sends the capture box back to the middle of the screen.
 - **Permission prompts that recover.** They come one at a time, and declining one leaves a button to try again instead of closing the app.
-- **Buttons instead of hidden gestures.** The results window has Translate, Copy, Read with ML Kit or manga-ocr, Instant and close buttons, and each character has its alternatives, Edit and Delete. The row scrolls on narrow screens.
+- **Buttons instead of hidden gestures.** The results window has Translate, Copy, Read with ML Kit or manga-ocr, Instant and close buttons, and each character has its alternatives, Edit and Delete. The results open with the first word looked up, so these are in view without a tap. The row scrolls on narrow screens.
+- **Back closes the results**, instead of going to the app underneath and closing the page you were reading.
 - **A Quick Settings tile** shows, hides or starts Gaku, and the notification's buttons are labelled.
 - **No freezes while reading.** A double-tap during a read says so, and hiding Gaku mid-read is instant.
 - **An up-to-date tutorial**, and no more beta screen on every launch.
@@ -78,9 +80,9 @@ Each of this fork's changes is explained in its commit message. They're the comm
 - *Notifications*, which is optional and gives you a notification with Hide, Show, Instant and Shutdown buttons.
 - *Screen capture*, which Gaku asks for each time it starts. On Android 14 and later, choose *Entire screen*. If you share a single app, Gaku can only read it while it fills the screen.
 
-**Reading.** Drag the box over Japanese text, and resize it from its bottom-right corner. Double-tap the box to read it. With instant mode on, a small box is read as soon as you let go of it, which suits single words.
+**Reading.** Drag the box over Japanese text, and resize it from its bottom-right corner. It stays where you leave it, even after hiding or restarting Gaku. Double-tap the box to read it. With instant mode on, a small box is read as soon as you let go of it, which suits single words.
 
-**The results.** Tap a character to look it up from that point. Its alternatives appear below it: tap one to swap it in, or use *Edit* to type or handwrite the right one, or *Delete*. *Translate* opens Google Translate's pop-up, *Copy* copies the text, and *Read with ML Kit* rereads the crop with the other reader. Tap outside the results, or ✕, to close them.
+**The results.** They open with the first word looked up. Tap any character to look it up from that point instead. The selected character's alternatives appear below it: tap one to swap it in, or use *Edit* to type or handwrite the right one, or *Delete*. *Translate* opens Google Translate's pop-up, *Copy* copies the text, and *Read with ML Kit* rereads the crop with the other reader. Tap outside the results, press Back, or tap ✕ to close them.
 
 In the lan build with a server set, *Translate* shows your model's translation, *Google* opens Google Translate, and *Ask* opens a chat about the sentence. Close the chat with ✕ or *Back* to return to the results. *Stop* ends an answer early.
 

@@ -114,6 +114,12 @@ class MainActivity : AppCompatActivity()
                 checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     }
 
+    /** Whether Gaku has asked for notifications yet; until then, their being off isn't worth a hint. */
+    fun notificationsAsked(): Boolean
+    {
+        return mPrefs.getBoolean(GAKU_PREF_NOTIFICATIONS_ASKED, false)
+    }
+
     /**
      * Whether Gaku is about to run: the consent dialog is up, or the service was just asked to start.
      * The time limit covers a service that failed to start, which this activity isn't told about.

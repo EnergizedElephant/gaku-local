@@ -261,7 +261,7 @@ class MainStartFragment : Fragment()
         progressBar.visibility = if (starting) View.VISIBLE else View.INVISIBLE
 
         val hints = ArrayList<String>()
-        if (!mainActivity.canShowNotifications()) hints.add(getString(R.string.gaku_hint_notifications))
+        if (!mainActivity.canShowNotifications() && mainActivity.notificationsAsked()) hints.add(getString(R.string.gaku_hint_notifications))
         if (!running && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) hints.add(getString(R.string.gaku_hint_entire_screen))
         hintText.text = hints.joinToString("\n\n")
         hintText.visibility = if (hints.isEmpty()) View.GONE else View.VISIBLE

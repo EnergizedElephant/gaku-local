@@ -12,6 +12,7 @@ import android.os.Build;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -78,6 +79,10 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     private ArrayList<ISquareChar> mSearchedChars = new ArrayList<>();
     // The character last tapped in the grid, which the character buttons act on
     private ISquareChar mSelectedChar;
+    // The text shown, and which of its characters show() looks up: the first for new results, or the
+    // one that was selected when a character was swapped, edited or deleted
+    private DisplayData mDisplayData;
+    private int mSelectIndex;
     private TextView mReadAgainButton;
     // The OCR result shown, to read again with the other reader; null for text looked up from another app
     private DisplayDataOcr mOcrResult;
@@ -151,6 +156,8 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     {
         mSearchedChars = new ArrayList<>();
         clearLlm();
+        mDisplayData = displayData;
+        mSelectIndex = 0;
 
         mKanjiGrid.removeAllViews();
         mKanjiGrid.setText(displayData);
@@ -179,7 +186,9 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         displayData.assignIndicies();
 
         mKanjiGrid.setText(displayData);
-        performSearch(displayData.getSquareChars().get(0));
+        // show() looks up the first character
+        mDisplayData = displayData;
+        mSelectIndex = 0;
 
         mTextOnlyLookup = true;
     }
@@ -405,6 +414,10 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         super.reInit(options);
     }
 
+    /**
+     * Focusable, unlike the other overlays, so that Back closes the results (onBackKey) instead of the app
+     * being read underneath. It covers the screen and takes every touch anyway.
+     */
     @Override
     protected WindowManager.LayoutParams getDefaultParams()
     {
@@ -412,13 +425,25 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
                 Build.VERSION.SDK_INT > 25 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT);
         params.x = 0;
         params.y = 0;
         params.gravity = Gravity.TOP | Gravity.CENTER;
-        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING | WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE;
+        // Nothing here takes text, so never bring up the keyboard now that the window can take focus
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN;
         return params;
+    }
+
+    @Override
+    public boolean onBackKey(KeyEvent e)
+    {
+        // Close on release, as Back does elsewhere; the press is taken too so the app doesn't see half of it
+        if (e.getAction() == KeyEvent.ACTION_UP && !e.isCanceled())
+        {
+            hide();
+        }
+        return true;
     }
 
     @Override
@@ -454,6 +479,13 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         params.y = 0; // onScroll changes this value
         super.show();
         window.setY(0); // translationY changes this value
+
+        // Look a character up straight away, so its lookalikes, Edit and Delete are already in view
+        if (mDisplayData != null && mDisplayData.getCount() > 0)
+        {
+            List<ISquareChar> chars = mDisplayData.getSquareChars();
+            performSearch(chars.get(Math.min(mSelectIndex, chars.size() - 1)));
+        }
     }
 
     @Override
@@ -618,9 +650,15 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         }
     }
 
+    /**
+     * Called when a character was swapped, edited or deleted, just before show(). Keeps the selection in
+     * the same place: on the new character, or on the next one after a delete. With nothing selected
+     * (after scrolling), it's the first character in view.
+     */
     @Override
     public void recalculateKanjiViews()
     {
+        mSelectIndex = mSelectedChar != null ? mSelectedChar.getIndex() : mKanjiGrid.getOffset();
         mKanjiGrid.recalculateKanjiViews();
     }
 

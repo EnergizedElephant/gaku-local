@@ -45,26 +45,8 @@
                 android:textColor="@color/PrimaryDark"
                 android:textSize="20sp" />
 
-            <TextView
-                android:id="@+id/gaku_tutorial"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:padding="10dp"
-                android:text="Tap Here to View Tutorial"
-                android:textColor="@color/blue_dark"
-                android:textSize="14sp" />
-
-            <TextView
-                android:id="@+id/gaku_github"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:padding="10dp"
-                android:text="Dev? GitHub Here"
-                android:textColor="@color/blue_dark"
-                android:textSize="14sp" />
-
-            <!-- What Gaku is doing, and the buttons that apply (MainStartFragment.refreshState) -->
+            <!-- What Gaku is doing, and the buttons that apply (MainStartFragment.refreshState). Right under
+                 the title, so they're in view without scrolling even on 640dp-tall screens -->
             <TextView
                 android:id="@+id/gaku_state"
                 android:layout_width="match_parent"
@@ -173,6 +155,25 @@
                     android:textSize="12sp" />
 
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/gaku_tutorial"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:padding="10dp"
+                android:text="Tap Here to View Tutorial"
+                android:textColor="@color/blue_dark"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/gaku_github"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="10dp"
+                android:text="Dev? GitHub Here"
+                android:textColor="@color/blue_dark"
+                android:textSize="14sp" />
 
         </LinearLayout>
 

@@ -21,6 +21,11 @@ const val GAKU_PREF_NOTIFICATIONS_ASKED = "NotificationsAsked"
 // The Ollama server, as typed, and the model chosen (lan build)
 const val GAKU_PREF_LLM_SERVER = "LlmServer"
 const val GAKU_PREF_LLM_MODEL = "LlmModel"
+// Where the capture box was last left, in screen pixels
+const val GAKU_PREF_BOX_X = "BoxX"
+const val GAKU_PREF_BOX_Y = "BoxY"
+const val GAKU_PREF_BOX_WIDTH = "BoxWidth"
+const val GAKU_PREF_BOX_HEIGHT = "BoxHeight"
 
 const val EXTRA_PROJECTION_RESULT_CODE = "ca.fuwafuwa.gaku.PROJECTION_RESULT_CODE"
 const val EXTRA_PROJECTION_RESULT_INTENT = "ca.fuwafuwa.gaku.PROJECTION_RESULT_INTENT"

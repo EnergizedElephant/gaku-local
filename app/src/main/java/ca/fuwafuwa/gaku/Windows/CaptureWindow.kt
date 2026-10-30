@@ -143,6 +143,9 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
     {
         Log.d(TAG, String.format("onUp - mInLongPress: %b | mProcessingPreview: %b | mProcessingOcr: %b", mInLongPress, mProcessingPreview, mProcessingOcr))
 
+        // Moving and resizing both end here, after Window has kept the box on screen
+        saveBoxPosition()
+
         if (!mInLongPress && !mProcessingPreview && !mProcessingOcr)
         {
             Log.d(TAG, "onUp - SetPreviewImage")
@@ -200,11 +203,34 @@ class CaptureWindow(context: Context, windowCoordinator: WindowCoordinator) : Wi
         windowCoordinator.getWindow(WINDOW_INSTANT_KANJI).hide()
     }
 
+    private fun saveBoxPosition()
+    {
+        val context = context ?: return
+        context.getSharedPreferences(GAKU_PREF_FILE, Context.MODE_PRIVATE).edit()
+                .putInt(GAKU_PREF_BOX_X, params.x)
+                .putInt(GAKU_PREF_BOX_Y, params.y)
+                .putInt(GAKU_PREF_BOX_WIDTH, params.width)
+                .putInt(GAKU_PREF_BOX_HEIGHT, params.height)
+                .apply()
+    }
+
     override fun getDefaultParams(): WindowManager.LayoutParams
     {
         val params = super.getDefaultParams()
         params.x = realDisplaySize.x / 2 - params.width / 2
         params.y = realDisplaySize.y / 4 - params.height / 2
+
+        // Hiding stops the windows, so this runs on every Show and Start: put the box back where it was
+        // left. reInit() keeps it on screen if the display has changed since, e.g. after rotating.
+        val prefs = context.getSharedPreferences(GAKU_PREF_FILE, Context.MODE_PRIVATE)
+        if (prefs.contains(GAKU_PREF_BOX_X))
+        {
+            params.x = prefs.getInt(GAKU_PREF_BOX_X, params.x)
+            params.y = prefs.getInt(GAKU_PREF_BOX_Y, params.y)
+            params.width = prefs.getInt(GAKU_PREF_BOX_WIDTH, params.width)
+            params.height = prefs.getInt(GAKU_PREF_BOX_HEIGHT, params.height)
+        }
+
         params.alpha = 0.8F
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
         {

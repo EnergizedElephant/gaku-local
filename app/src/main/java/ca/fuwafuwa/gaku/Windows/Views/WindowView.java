@@ -3,6 +3,7 @@ package ca.fuwafuwa.gaku.Windows.Views;
 import android.content.Context;
 import androidx.core.view.GestureDetectorCompat;
 import android.util.AttributeSet;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.widget.RelativeLayout;
 
@@ -50,6 +51,17 @@ public class WindowView extends RelativeLayout
         }
 
         return mWindowListener.onTouch(e);
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent e)
+    {
+        if (e.getKeyCode() == KeyEvent.KEYCODE_BACK && mWindowListener != null && mWindowListener.onBackKey(e))
+        {
+            return true;
+        }
+
+        return super.dispatchKeyEvent(e);
     }
 }
 
