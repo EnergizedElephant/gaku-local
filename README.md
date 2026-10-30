@@ -1,4 +1,4 @@
-# gaku-offline
+# gaku-local
 
 A privacy-hardened fork of [Gaku](https://github.com/ExecuteOrd66/Gaku), a Japanese OCR dictionary for Android. Drag a box over Japanese text in any app, and Gaku reads it on the device and looks the words up in a built-in dictionary. It's made for reading raw manga, games and anything else you can't select and copy.
 
@@ -12,7 +12,7 @@ It comes in two builds. `offline` has no network permission at all. `lan` adds o
 |---|---|
 | [Kaku](https://github.com/0xbad1d3a5/Kaku) by 0xbad1d3a5, 2016–2022 | The app itself: the floating capture box, OCR with Tesseract, JMdict and KANJIDIC look-ups with deinflection, instant mode, fixing misread characters, and looking up text selected in other apps. |
 | [Gaku](https://github.com/ExecuteOrd66/Gaku) by Carl Oosthuizen, December 2025 | One migration commit: the rename to Gaku, Google ML Kit in place of Tesseract, crash fixes for the edit window, kanji alternatives and rotation, and a build updated for current Android. |
-| gaku-offline, this repo, October 2026 | Everything under [What this fork changes](#what-this-fork-changes). |
+| gaku-local, this repo, October 2026 | Everything under [What this fork changes](#what-this-fork-changes). |
 
 Each of this fork's changes is explained in its commit message. They're the commits after Gaku's `18255f5` ("Migrate Kaku to Gaku", tagged `v1.4.00-beta`), so `git log v1.4.00-beta..` lists them.
 
