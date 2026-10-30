@@ -71,7 +71,7 @@ class MainStartFragment : Fragment()
         }
 
         githubText.setOnClickListener {
-            openUrl(mainActivity, "https://github.com/ExecuteOrd66/Gaku")
+            openUrl(mainActivity, "https://github.com/EnergizedElephant/gaku-local")
         }
 
         startButton.setOnClickListener {
