@@ -12,6 +12,7 @@ import android.os.Build;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -318,6 +319,10 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         super.reInit(options);
     }
 
+    /**
+     * Focusable, unlike the other overlays, so that Back closes the results (onBackKey) instead of the app
+     * being read underneath. It covers the screen and takes every touch anyway.
+     */
     @Override
     protected WindowManager.LayoutParams getDefaultParams()
     {
@@ -325,13 +330,25 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
                 Build.VERSION.SDK_INT > 25 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT);
         params.x = 0;
         params.y = 0;
         params.gravity = Gravity.TOP | Gravity.CENTER;
-        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING | WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE;
+        // Nothing here takes text, so never bring up the keyboard now that the window can take focus
+        params.softInputMode = WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN;
         return params;
+    }
+
+    @Override
+    public boolean onBackKey(KeyEvent e)
+    {
+        // Close on release, as Back does elsewhere; the press is taken too so the app doesn't see half of it
+        if (e.getAction() == KeyEvent.ACTION_UP && !e.isCanceled())
+        {
+            hide();
+        }
+        return true;
     }
 
     @Override

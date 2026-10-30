@@ -1,6 +1,7 @@
 package ca.fuwafuwa.gaku.Windows.Interfaces;
 
 import android.view.GestureDetector;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 
 /**
@@ -9,6 +10,7 @@ import android.view.MotionEvent;
 public interface WindowListener extends GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener {
     boolean onTouch(MotionEvent e);
     boolean onResize(MotionEvent e);
+    boolean onBackKey(KeyEvent e);
 }
 
 
