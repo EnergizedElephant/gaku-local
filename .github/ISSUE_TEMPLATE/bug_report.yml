@@ -1,0 +1,66 @@
+name: Bug report
+description: Something in Gaku doesn't work as it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. The more of these you can fill in, the easier the problem is to find.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be made to happen again?
+      description: The steps from opening Gaku, if you know them.
+      placeholder: |
+        1. Started Gaku and shared the entire screen
+        2. Opened a manga reader
+        3. Double-tapped the box over a speech bubble
+  - type: input
+    id: device
+    attributes:
+      label: Phone or tablet
+      description: The make and model, such as Samsung Galaxy A71 or Lenovo Tab M11.
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      description: In Settings → About phone (or About tablet) → Android version.
+    validations:
+      required: true
+  - type: dropdown
+    id: build
+    attributes:
+      label: Which Gaku?
+      options:
+        - gaku-offline
+        - gaku-lan
+        - I built it myself
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Gaku's version
+      description: In Settings → Apps → Gaku, near the bottom of the page.
+  - type: dropdown
+    id: reader
+    attributes:
+      label: Which reader was it using?
+      options:
+        - manga-ocr (the default)
+        - ML Kit (after tapping Read with ML Kit)
+        - Not sure
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or a screen recording
+      description: Optional. Drag them in here, but check first that they show nothing private.
