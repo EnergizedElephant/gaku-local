@@ -53,7 +53,8 @@ Each of this fork's changes is explained in its commit message. They're the comm
 - **Controls in the app.** The start screen says whether Gaku is off, running or hidden, with Start, Show, Hide and Stop buttons.
 - **The box stays put.** Hiding and showing Gaku, stopping it or restarting the phone no longer sends the capture box back to the middle of the screen.
 - **Permission prompts that recover.** They come one at a time, and declining one leaves a button to try again instead of closing the app.
-- **Buttons instead of hidden gestures.** The results window has Translate, Copy, Read with ML Kit or manga-ocr, Instant and close buttons, and each character has its alternatives, Edit and Delete. The results open with the first word looked up, so these are in view without a tap. The row scrolls on narrow screens.
+- **Buttons instead of hidden gestures.** The results window has Translate, Copy, Anki, Read with ML Kit or manga-ocr, Instant and close buttons, and each character has its alternatives, Edit and Delete. The results open with the first word looked up, so these are in view without a tap. The row scrolls on narrow screens.
+- **Words to Anki.** With [AnkiDroid](https://github.com/ankidroid/Anki-Android) connected on the start screen, *Anki* in the results adds the word you looked up to a deck you choose. The card has the word's reading and meaning, the text it was in with the word in bold, and, in the lan build, your model's translation. It's tagged `gaku`, and a word that already has a card isn't added again. It works on the device, through AnkiDroid's own permission, so the offline build can do it too.
 - **Back closes the results**, instead of going to the app underneath and closing the page you were reading.
 - **A Quick Settings tile** shows, hides or starts Gaku, and the notification's buttons are labelled.
 - **No freezes while reading.** A double-tap during a read says so, and hiding Gaku mid-read is instant.
@@ -71,6 +72,7 @@ Each of this fork's changes is explained in its commit message. They're the comm
 - Captures and recognised text stay in memory. They're never written to storage or logged.
 - Reading and the dictionary run on the device. The offline build has no internet permission.
 - In the lan build, text goes to the Ollama server you set when you tap *Translate* or *Ask*: the recognised text, the word you last looked up with its dictionary entry, and what you type in the chat. Conversations stay in memory and end when you open another sentence. The server's address and API key are kept in Gaku's private settings, which are excluded from backup.
+- When you tap *Anki*, the word, its dictionary entry, the text and any translation go to AnkiDroid, on the device. AnkiDroid's own sync may then upload them to AnkiWeb.
 - Otherwise, text leaves the device only when you open Google Translate, which gets the text, or when you copy it.
 - One exception: when you use *Read with ML Kit*, ML Kit can report usage to Google Play services, which has its own network access. From its code, these reports are metadata such as call timings, not images or text.
 
@@ -87,6 +89,8 @@ Each of this fork's changes is explained in its commit message. They're the comm
 **The results.** They open with the first word looked up. Tap any character to look it up from that point instead. The selected character's alternatives appear below it: tap one to swap it in, or use *Edit* to type or handwrite the right one, or *Delete*. *Translate* opens Google Translate's pop-up, *Copy* copies the text, and *Read with ML Kit* rereads the crop with the other reader. Tap outside the results, press Back, or tap ✕ to close them.
 
 In the lan build with a server set, *Translate* shows your model's translation, *Google* opens Google Translate, and *Ask* opens a chat about the sentence. Close the chat with ✕ or *Back* to return to the results. *Stop* ends an answer early.
+
+**Anki.** Install AnkiDroid and open it once. On Gaku's start screen, tap *Connect AnkiDroid*, allow access, and choose a deck: Gaku makes one called Gaku unless you pick another. *Anki* in the results then adds the word looked up, with the text it's in, and the translation if you made one first. The cards use a note type called Gaku, with the word on the front and its reading, meaning, sentence and translation on the back. You can restyle it in AnkiDroid.
 
 The older gestures still work: on a character, swipe down for alternatives, up and left to edit, or up and right to delete, and long-press to copy all the text.
 
@@ -115,7 +119,7 @@ adb install -r app/build/outputs/apk/offline/debug/app-offline-debug.apk
 
 - Without the model, the app still builds and runs but reads with ML Kit only, and *Read with manga-ocr* says the model is missing.
 - The build includes native libraries for arm64-v8a, for devices, and x86_64, for the emulator.
-- `bash ./gradlew testOfflineDebugUnitTest --tests 'ca.fuwafuwa.gaku.Ocr.*' --tests 'ca.fuwafuwa.gaku.Llm.*'` runs the OCR tests for reading order and furigana, and the LLM client's tests. `GenerateDictionary` isn't a real test: it builds the dictionary database from a JMdict XML file at a hard-coded Windows path, so it fails elsewhere.
+- `bash ./gradlew testOfflineDebugUnitTest --tests 'ca.fuwafuwa.gaku.Ocr.*' --tests 'ca.fuwafuwa.gaku.Llm.*' --tests 'ca.fuwafuwa.gaku.Anki.*'` runs the OCR tests for reading order and furigana, the LLM client's tests, and the tests for Anki cards. `GenerateDictionary` isn't a real test: it builds the dictionary database from a JMdict XML file at a hard-coded Windows path, so it fails elsewhere.
 - `bash ./gradlew assembleOfflineRelease` (or `assembleLanRelease`) builds a minified, unsigned APK. Sign it with your own key using `apksigner`. R8's keep rules for ORMLite and ONNX Runtime are in `app/proguard-rules.pro`. R8 mistakes only show up at runtime, so try a release build on a device after changing dependencies.
 - `tools/similar_kanji.py` rebuilds `app/src/main/assets/similar_kanji.txt` from Yencken's `jyouyou__strokeEditDistance.csv`.
 

@@ -167,6 +167,55 @@
 
             </LinearLayout>
 
+            <!-- Adding words to AnkiDroid, in both builds (MainStartFragment.refreshAnki) -->
+            <LinearLayout
+                android:id="@+id/anki_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Anki"
+                    android:textColor="@color/PrimaryDark"
+                    android:textSize="16sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <!-- AnkiDroid's decks, once Gaku may read them -->
+                    <Spinner
+                        android:id="@+id/anki_deck"
+                        android:theme="@style/ThemeOverlay.AppCompat.Light"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:visibility="gone" />
+
+                    <Button
+                        android:id="@+id/anki_connect"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone"
+                        android:text="@string/anki_button_connect" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/anki_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="@color/PrimaryDark"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/gaku_tutorial"
                 android:layout_width="wrap_content"

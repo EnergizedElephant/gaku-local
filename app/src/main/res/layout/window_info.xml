@@ -104,6 +104,14 @@
                                 style="@style/InfoButton"
                                 android:text="Copy" />
 
+                            <!-- Adds the word looked up to AnkiDroid; shown once it's connected on the
+                                 start screen -->
+                            <TextView
+                                android:id="@+id/info_anki"
+                                style="@style/InfoButton"
+                                android:visibility="gone"
+                                android:text="Anki" />
+
                             <!-- Reads the same crop with the other reader; hidden for text looked up from
                                  another app, which has no image -->
                             <TextView

@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import ca.fuwafuwa.gaku.Anki.AnkiDroid
 
 
 class MainActivity : AppCompatActivity()
@@ -118,6 +119,30 @@ class MainActivity : AppCompatActivity()
     fun notificationsAsked(): Boolean
     {
         return mPrefs.getBoolean(GAKU_PREF_NOTIFICATIONS_ASKED, false)
+    }
+
+    /** Whether Gaku has asked for AnkiDroid's permission before. */
+    fun ankiAsked(): Boolean
+    {
+        return mPrefs.getBoolean(GAKU_PREF_ANKI_ASKED, false)
+    }
+
+    /** Asked before, and Android won't show the prompt again: only Gaku's app settings can grant it now. */
+    fun ankiPermissionBlocked(): Boolean
+    {
+        return ankiAsked() && !shouldShowRequestPermissionRationale(AnkiDroid.PERMISSION)
+    }
+
+    /** The start screen's Connect AnkiDroid button. Its onResume shows the outcome. */
+    fun requestAnkiPermission()
+    {
+        mPrefs.edit().putBoolean(GAKU_PREF_ANKI_ASKED, true).apply()
+        requestPermissions(arrayOf(AnkiDroid.PERMISSION), REQUEST_ANKI)
+    }
+
+    fun openAppSettings()
+    {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
     }
 
     /**

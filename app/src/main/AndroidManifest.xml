@@ -17,6 +17,15 @@
     <!-- The network permissions are set by each flavour's manifest: src/offline strips them all, src/lan
          adds INTERNET for the Ollama server -->
 
+    <!-- Adding notes to AnkiDroid on this device (Anki/AnkiDroid.kt). AnkiDroid defines it as a runtime
+         permission, asked for from the start screen, and Gaku works without it. -->
+    <uses-permission android:name="com.ichi2.anki.permission.READ_WRITE_DATABASE" />
+
+    <!-- Android 11+ hides other apps' providers unless they're declared -->
+    <queries>
+        <provider android:authorities="com.ichi2.anki.flashcards" />
+    </queries>
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"

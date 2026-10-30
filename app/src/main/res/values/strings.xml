@@ -22,4 +22,17 @@
     <string name="llm_status_no_models">The server has no models. Pull one with \"ollama pull\", then Connect again.</string>
     <string name="llm_status_unencrypted">Text goes to this server unencrypted. Use https:// if it supports it.</string>
     <string name="llm_status_using">Translate and Ask use %1$s. Text is only sent when you tap them.</string>
+
+    <!-- The start screen's AnkiDroid settings (MainStartFragment.refreshAnki) -->
+    <string name="anki_button_connect">Connect AnkiDroid</string>
+    <string name="anki_button_try_again">Try again</string>
+    <string name="anki_button_settings">Open settings</string>
+    <string name="anki_new_deck">%1$s (new deck)</string>
+    <string name="anki_status_not_installed">Install AnkiDroid to add the words you look up to an Anki deck.</string>
+    <string name="anki_status_connect">Gaku can add the words you look up to an AnkiDroid deck, with the text they\'re in. It needs AnkiDroid\'s permission for that.</string>
+    <string name="anki_status_declined">AnkiDroid\'s permission was declined, so Gaku can\'t add cards.</string>
+    <string name="anki_status_blocked">AnkiDroid\'s permission was declined. To add cards, allow it in Gaku\'s app settings, under Permissions.</string>
+    <string name="anki_status_loading">Reading AnkiDroid\'s decks…</string>
+    <string name="anki_status_error">Can\'t read AnkiDroid\'s decks. Open AnkiDroid once, then come back here.</string>
+    <string name="anki_status_ready">Anki, in the results, adds the word you looked up to %1$s.</string>
 </resources>

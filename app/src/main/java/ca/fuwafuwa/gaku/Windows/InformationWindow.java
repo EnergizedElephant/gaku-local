@@ -29,6 +29,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import ca.fuwafuwa.gaku.Anki.AnkiCard;
+import ca.fuwafuwa.gaku.Anki.AnkiDroid;
 import ca.fuwafuwa.gaku.Constants;
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized;
 import ca.fuwafuwa.gaku.GakuTools;
@@ -95,6 +97,10 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     private String mTranslation;
     private String mLookedUpWord;
     private String mLookedUpEntry;
+    // The top dictionary result for the character looked up, and that search, for the Anki button
+    private View mAnkiButton;
+    private JmSearchResult mLookedUpResult;
+    private SearchInfo mLookedUpSearch;
 
     public InformationWindow(Context context, WindowCoordinator windowCoordinator)
     {
@@ -125,6 +131,8 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         mAskButton.setOnClickListener(v -> openChat());
         mLlmTranslation = window.findViewById(R.id.info_llm_translation);
         window.findViewById(R.id.info_copy).setOnClickListener(v -> copyText());
+        mAnkiButton = window.findViewById(R.id.info_anki);
+        mAnkiButton.setOnClickListener(v -> addToAnki());
         mReadAgainButton = window.findViewById(R.id.info_read_again);
         mReadAgainButton.setOnClickListener(v -> {
             if (mOcrResult == null) return;
@@ -261,6 +269,23 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
                 mLlmTranslation.setText(message);
             }
         });
+    }
+
+    /**
+     * Adds the word last looked up to AnkiDroid, with the text it's in and the LLM's translation, if one
+     * was made. The window stays open.
+     */
+    private void addToAnki()
+    {
+        if (mLookedUpResult == null || mLookedUpSearch == null)
+        {
+            Toast.makeText(context, "Tap a word that's in the dictionary first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        AnkiCard card = AnkiCard.from(mLookedUpResult.getEntry(), mLookedUpResult.getWord(),
+                mLookedUpSearch.getText(), mLookedUpSearch.getTextOffset(), mTranslation);
+        AnkiDroid.add(context, card, message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show());
     }
 
     /** Opens the chat window about the text, with the word last looked up and the translation, if any. */
@@ -469,11 +494,15 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         clearLlm();
         mLookedUpWord = null;
         mLookedUpEntry = null;
+        mLookedUpResult = null;
+        mLookedUpSearch = null;
         Prefs prefs = GakuTools.getPrefs(context);
         updateInstantButton(prefs.getInstantModeSetting());
         // The server can be set or cleared on the start screen while Gaku runs
         mGoogleButton.setVisibility(prefs.getLlmConfigured() ? View.VISIBLE : View.GONE);
         mAskButton.setVisibility(prefs.getLlmConfigured() ? View.VISIBLE : View.GONE);
+        // AnkiDroid can be connected, or its permission taken away, while Gaku runs
+        mAnkiButton.setVisibility(AnkiDroid.isReady(context) ? View.VISIBLE : View.GONE);
 
         window.setVisibility(View.VISIBLE);
         params.y = 0; // onScroll changes this value
@@ -619,6 +648,9 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     public void jmResultsCallback(List<JmSearchResult> results, SearchInfo search)
     {
         windowCoordinator.getWindow(Constants.WINDOW_INSTANT_KANJI).hide();
+        // Follows the latest search, so Anki never adds a word that isn't the one shown
+        mLookedUpResult = results.isEmpty() ? null : results.get(0);
+        mLookedUpSearch = search;
 
         if (results.size() > 0)
         {

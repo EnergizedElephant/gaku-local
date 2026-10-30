@@ -98,7 +98,7 @@ class TutorialFragment : Fragment()
             4 -> return "FIXING A CHARACTER - SWAP"
             5 -> return "FIXING A CHARACTER - EDIT"
             6 -> return "FIXING A CHARACTER - DELETE"
-            7 -> return "TRANSLATE AND COPY"
+            7 -> return "TRANSLATE, COPY AND ANKI"
             8 -> return "SHOWING AND HIDING GAKU"
             9 -> return "SELECT TO LOOKUP"
         }
@@ -115,9 +115,9 @@ class TutorialFragment : Fragment()
             5 -> return "If the right character isn't among the lookalikes, tap the character, then Edit, and type or handwrite it. Handwriting needs a handwriting keyboard, for example Gboard with Japanese handwriting. A quick swipe up and to the left on the character does the same."
             6 -> return "To remove a character that shouldn't be there, tap it, then Delete. A quick swipe up and to the right does the same; in instant mode the swipe directions may be reversed when there isn't enough room."
             7 -> return if (BuildConfig.LLM)
-                "Translate opens Google Translate's pop-up with the recognised text, or, with an Ollama server set on the start screen, shows your model's translation; Google then opens Google Translate, and Ask opens a chat about the text. Copy copies it to the clipboard, as does a long press on any character. Text only leaves Gaku when you tap one of these buttons."
+                "Translate opens Google Translate's pop-up with the recognised text, or, with an Ollama server set on the start screen, shows your model's translation; Google then opens Google Translate, and Ask opens a chat about the text. Copy copies it to the clipboard, as does a long press on any character. $ANKI Text only leaves Gaku when you tap one of these buttons."
             else
-                "Translate opens Google Translate's pop-up with the recognised text. Copy copies it to the clipboard, as does a long press on any character. Gaku itself has no internet access: Translate only gets the text when you tap the button."
+                "Translate opens Google Translate's pop-up with the recognised text. Copy copies it to the clipboard, as does a long press on any character. $ANKI Gaku itself has no internet access: Translate only gets the text when you tap the button."
             8 -> return "Show, hide or shut down Gaku from its notification, which also turns instant mode on or off. Gaku's Quick Settings tile shows or hides it too, and starts it when it isn't running."
             9 -> return "In the case that you can select the text and don't need OCR, simply select the text and send it to Gaku to bring up the dictionary."
         }
@@ -129,6 +129,7 @@ class TutorialFragment : Fragment()
     {
         private val TAG = TutorialFragment::class.java.name
         private val ARG_SECTION_NUMBER = "section_number"
+        private const val ANKI = "Anki adds the word you looked up to an AnkiDroid deck, with the text it's in, once AnkiDroid is connected on the start screen."
 
         fun newInstance(sectionNumber: Int): TutorialFragment
         {

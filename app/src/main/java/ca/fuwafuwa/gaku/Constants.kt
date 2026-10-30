@@ -22,6 +22,10 @@ const val GAKU_PREF_NOTIFICATIONS_ASKED = "NotificationsAsked"
 const val GAKU_PREF_LLM_SERVER = "LlmServer"
 const val GAKU_PREF_LLM_API_KEY = "LlmApiKey"
 const val GAKU_PREF_LLM_MODEL = "LlmModel"
+// AnkiDroid: the deck and note type Gaku adds to, and whether its permission has been asked for
+const val GAKU_PREF_ANKI_DECK = "AnkiDeck"
+const val GAKU_PREF_ANKI_MODEL = "AnkiModel"
+const val GAKU_PREF_ANKI_ASKED = "AnkiAsked"
 // Where the capture box was last left, in screen pixels
 const val GAKU_PREF_BOX_X = "BoxX"
 const val GAKU_PREF_BOX_Y = "BoxY"
@@ -48,6 +52,7 @@ const val REQUEST_SERVICE_TOGGLE_INSTANT_MODE = 500
 const val REQUEST_SERVICE_SHUTDOWN = 600
 const val REQUEST_SERVICE_TOGGLE_SHOW_HIDE = 700
 const val REQUEST_NOTIFICATIONS = 800
+const val REQUEST_ANKI = 900
 
 
 

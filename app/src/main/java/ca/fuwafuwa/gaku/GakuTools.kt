@@ -27,7 +27,10 @@ data class Prefs(val instantModeSetting: Boolean,
                  // The Ollama server, its API key and model (lan build); empty until set on the start screen
                  val llmServer: String,
                  val llmApiKey: String,
-                 val llmModel: String)
+                 val llmModel: String,
+                 // AnkiDroid's ids for the deck and note type Gaku adds to; 0 until chosen
+                 val ankiDeck: Long,
+                 val ankiModel: Long)
 {
     val llmConfigured: Boolean
         get() = BuildConfig.LLM && llmServer.isNotEmpty() && llmModel.isNotEmpty()
@@ -44,7 +47,9 @@ fun getPrefs(context: Context): Prefs
             prefs.getBoolean(GAKU_PREF_SHOW_HIDE, true),
             prefs.getString(GAKU_PREF_LLM_SERVER, "")!!,
             prefs.getString(GAKU_PREF_LLM_API_KEY, "")!!,
-            prefs.getString(GAKU_PREF_LLM_MODEL, "")!!)
+            prefs.getString(GAKU_PREF_LLM_MODEL, "")!!,
+            prefs.getLong(GAKU_PREF_ANKI_DECK, 0L),
+            prefs.getLong(GAKU_PREF_ANKI_MODEL, 0L))
 }
 
 fun toJson(obj: Any): String
