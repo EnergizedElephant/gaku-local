@@ -69,6 +69,7 @@
                     <!-- Scrolls sideways where the buttons don't all fit (phones in portrait), with the
                          close button always in view -->
                     <HorizontalScrollView
+                        android:id="@+id/info_buttons_scroll"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -157,6 +158,7 @@
                     <!-- Lookalike characters to swap in, filled in code. Scrolls sideways when they don't
                          fit, so Edit and Delete stay on screen. -->
                     <HorizontalScrollView
+                        android:id="@+id/info_char_choices_scroll"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"

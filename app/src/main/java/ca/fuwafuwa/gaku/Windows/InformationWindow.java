@@ -76,6 +76,10 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     private View mCharActions;
     private TextView mCharText;
     private LinearLayout mCharChoices;
+    // Both rows scroll sideways on narrow screens: each starts from the left when the window is shown or
+    // another character is selected
+    private View mButtonsScroll;
+    private View mCharChoicesScroll;
     private Searcher mSearcher;
     private boolean mTextOnlyLookup;
     private ArrayList<ISquareChar> mSearchedChars = new ArrayList<>();
@@ -117,6 +121,8 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
         mCharActions = window.findViewById(R.id.info_char_actions);
         mCharText = window.findViewById(R.id.info_char);
         mCharChoices = window.findViewById(R.id.info_char_choices);
+        mButtonsScroll = window.findViewById(R.id.info_buttons_scroll);
+        mCharChoicesScroll = window.findViewById(R.id.info_char_choices_scroll);
 
         mKanjiGrid.setDependencies(windowCoordinator, this);
         // The grid only knows how many characters fit once it has been laid out
@@ -391,6 +397,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     {
         mSelectedChar = squareChar;
         mCharChoices.removeAllViews();
+        mCharChoicesScroll.scrollTo(0, 0);
 
         if (squareChar == null)
         {
@@ -489,6 +496,7 @@ public class InformationWindow extends Window implements Searcher.SearchDictDone
     public void show()
     {
         mDictResults.setText("");
+        mButtonsScroll.scrollTo(0, 0);
         // Shown again for new results, or after a character was swapped, edited or deleted
         setSelectedChar(null);
         clearLlm();
