@@ -8,13 +8,13 @@
     android:background="@color/Primary"
     tools:context=".MainStartFragment">
 
-    <!-- Scrolls on small screens instead of running into the art below -->
+    <!-- Scrolls on small screens instead of running into the progress bar below -->
     <ScrollView
         android:id="@+id/top_scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:fillViewport="true"
-        app:layout_constraintBottom_toTopOf="@+id/support_text"
+        app:layout_constraintBottom_toTopOf="@+id/frameLayout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
@@ -239,28 +239,14 @@
 
     </ScrollView>
 
-    <TextView
-        android:id="@+id/support_text"
-        android:layout_width="300dp"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginStart="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="15dp"
-        android:gravity="center"
-        android:textColor="@color/PrimaryDark"
-        android:textSize="12sp"
-        app:layout_constraintBottom_toBottomOf="@+id/horizontal_line"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
-
     <FrameLayout
         android:id="@+id/frameLayout"
         android:layout_width="300dp"
         android:layout_height="4dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
-        app:layout_constraintBottom_toTopOf="@+id/horizontal_line"
+        android:layout_marginBottom="32dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
@@ -273,31 +259,6 @@
             android:layout_gravity="center"
             android:indeterminate="true"
             android:visibility="invisible" />
-    </FrameLayout>
-
-    <FrameLayout
-        android:id="@+id/horizontal_line"
-        android:layout_width="300dp"
-        android:layout_height="1dp"
-        android:background="@android:color/black"
-        app:layout_constraintBottom_toTopOf="@+id/promoView"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
-    </FrameLayout>
-
-    <FrameLayout
-        android:id="@+id/promoView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="25dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
-        <ImageView
-            android:id="@+id/saeView"
-            android:layout_width="300dp"
-            android:layout_height="250dp"
-            android:background="@android:color/holo_red_dark"/>
     </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
