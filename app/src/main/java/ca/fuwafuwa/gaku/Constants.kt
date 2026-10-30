@@ -18,6 +18,11 @@ const val GAKU_PREF_INSTANT_MODE = "InstantMode"
 const val GAKU_PREF_FIRST_LAUNCH = "FirstLaunch"
 // Android 13+ notification permission: asked once, since Gaku works without it
 const val GAKU_PREF_NOTIFICATIONS_ASKED = "NotificationsAsked"
+// Where the capture box was last left, in screen pixels
+const val GAKU_PREF_BOX_X = "BoxX"
+const val GAKU_PREF_BOX_Y = "BoxY"
+const val GAKU_PREF_BOX_WIDTH = "BoxWidth"
+const val GAKU_PREF_BOX_HEIGHT = "BoxHeight"
 
 const val EXTRA_PROJECTION_RESULT_CODE = "ca.fuwafuwa.gaku.PROJECTION_RESULT_CODE"
 const val EXTRA_PROJECTION_RESULT_INTENT = "ca.fuwafuwa.gaku.PROJECTION_RESULT_INTENT"
