@@ -68,6 +68,7 @@ In detail:
 
 ## Build
 
+- **Its own app ID**, `io.github.energizedelephant.gaku`, so it installs alongside Kaku or Gaku instead of clashing with them. Its versions start at 2.0.0.
 - Release builds are minified with R8.
 - The manga-ocr model is downloaded by a script, pinned to a commit and checked against SHA-256 hashes. It's kept out of git.
 - Unused dependencies are out of the app: kuromoji, now only used by a test, the JitPack repository and the legacy support library.

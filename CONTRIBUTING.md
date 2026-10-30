@@ -37,7 +37,7 @@ The unit tests don't cover the overlay windows, screen capture or the start scre
 
 For maintainers publishing a release:
 
-- Raise `versionCode` and `versionName` in `app/build.gradle`.
+- Raise `version` in `app/build.gradle`. `versionCode` follows from it.
 - Name the signed APKs `gaku-offline-<version>.apk` and `gaku-lan-<version>.apk`, and attach both to a GitHub release with a few lines on what changed.
 - Keep the release key, and its password, backed up outside the repo. Android only installs an update signed with the same key, so if the key is lost, everyone has to uninstall and reinstall.
 
