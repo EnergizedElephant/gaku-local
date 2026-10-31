@@ -7,6 +7,7 @@ import ca.fuwafuwa.gaku.DB_JMDICT_NAME
 import ca.fuwafuwa.gaku.DB_KANJIDICT_NAME
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.JmDatabaseHelper
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized
+import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryReading
 import ca.fuwafuwa.gaku.Deinflictor.DeinflectionInfo
 import ca.fuwafuwa.gaku.Deinflictor.Deinflector
 import java.sql.SQLException
@@ -26,6 +27,82 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
     companion object
     {
         private val TAG = JmTask::class.java.getName()
+
+        /**
+         * Best first, in the order Yomitan sorts by: the most text matched, then not converted from
+         * katakana, then the fewest deinflections, then matched by written form before reading (の the
+         * particle before 野); then the primary written form and JMdict's priority tags. KANJIDIC's
+         * single kanji come after JMdict.
+         */
+        fun rank(results: List<JmSearchResult>) : List<JmSearchResult>
+        {
+            return results.sortedWith(compareBy(
+                    { getDictPriority(it) },
+                    { 0 - it.word.length },
+                    { it.converted },
+                    { ReadingLookup.deinflectionSteps(it.deinfInfo) },
+                    { it.byReading },
+                    { getEntryPriority(it) },
+                    { getPriority(it) }))
+        }
+
+        private fun getDictPriority(result: JmSearchResult) : Int
+        {
+            return when
+            {
+                result.entry.dictionary == DB_JMDICT_NAME -> Int.MAX_VALUE - 2
+                result.entry.dictionary == DB_KANJIDICT_NAME -> Int.MAX_VALUE - 1
+                else -> Int.MAX_VALUE
+            }
+        }
+
+        fun getEntryPriority(result: JmSearchResult) : Int
+        {
+            return if (result.entry.isPrimaryEntry) 0 else 1
+        }
+
+        fun getPriority(result: JmSearchResult) : Int
+        {
+            val priorities = result.entry.priorities.split(",")
+            var lowestPriority = Int.MAX_VALUE
+
+            for (priority in priorities){
+
+                var pri = Int.MAX_VALUE
+
+                if (priority.contains("nf")){ // looks like the range is nf01-nf48
+                    pri = priority.substring(2).toInt()
+                }
+                else if (priority == "news1"){
+                    pri = 60
+                }
+                else if (priority == "news2"){
+                    pri = 70
+                }
+                else if (priority == "ichi1"){
+                    pri = 80
+                }
+                else if (priority == "ichi2"){
+                    pri = 90
+                }
+                else if (priority == "spec1"){
+                    pri = 100
+                }
+                else if (priority == "spec2"){
+                    pri = 110
+                }
+                else if (priority == "gai1"){
+                    pri = 120
+                }
+                else if (priority == "gai2"){
+                    pri = 130
+                }
+
+                lowestPriority = if (pri < lowestPriority) pri else lowestPriority
+            }
+
+            return lowestPriority
+        }
     }
 
     private val mJmDbHelper: JmDatabaseHelper = JmDatabaseHelper.instance(context)
@@ -65,7 +142,7 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
         character = character.replace("'", "''")
 
         val entries: List<EntryOptimized> = entryOptimizedDao.queryBuilder().where().like("kanji", "$character%").query()
-        val matchedEntries = rankResults(getMatchedEntries(text, textOffset, entries))
+        val matchedEntries = rank(getMatchedEntries(text, textOffset, entries))
         Log.d(TAG, "Dict lookup time: ${System.currentTimeMillis() - startDictTime}")
 
         return matchedEntries
@@ -108,11 +185,7 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
 
                     if (count > 0)
                     {
-                        valid = (deinfInfo.type and 1 != 0) && (entry.pos.contains("v1")) ||
-                                (deinfInfo.type and 2 != 0) && (entry.pos.contains("v5")) ||
-                                (deinfInfo.type and 4 != 0) && (entry.pos.contains("adj-i")) ||
-                                (deinfInfo.type and 8 != 0) && (entry.pos.contains("vk")) ||
-                                (deinfInfo.type and 16 != 0) && (entry.pos.contains("vs-"))
+                        valid = ReadingLookup.fitsPartOfSpeech(entry.pos, deinfInfo.type)
                     }
 
                     if (valid){
@@ -140,74 +213,53 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
             word = word.substring(0, word.length - 1)
         }
 
+        results.addAll(getReadingMatches(text, textOffset, results))
+
         return results
     }
 
-    private fun rankResults(results: List<JmSearchResult>) : List<JmSearchResult>
+    /**
+     * Words written in kana that the dictionary has under kanji (よけい → 余計), found by reading, as
+     * Yomitan does; [found] are the matches by written form, which aren't repeated. A failure here,
+     * say a dictionary without the reading index, only loses these.
+     */
+    private fun getReadingMatches(text: String, textOffset: Int, found: List<JmSearchResult>): List<JmSearchResult>
     {
-        return results.sortedWith(compareBy(
-                { getDictPriority(it) },
-                { 0 - it.entry.kanji.length },
-                { getEntryPriority(it) },
-                { getPriority(it) }))
-    }
+        val run = ReadingLookup.kanaRun(text, textOffset)
+        if (run.length < 2) return emptyList()
 
-    private fun getDictPriority(result: JmSearchResult) : Int
-    {
-        return when
+        return try
         {
-            result.entry.dictionary == DB_JMDICT_NAME -> Int.MAX_VALUE - 2
-            result.entry.dictionary == DB_KANJIDICT_NAME -> Int.MAX_VALUE - 1
-            else -> Int.MAX_VALUE
+            val candidates = ReadingLookup.candidates(run) { mDeinflector.getPotentialDeinflections(it) }.groupBy { it.reading }
+
+            // Batched: older SQLite takes at most 999 values in a query
+            val readingDao = mJmDbHelper.getDbDao<EntryReading>(EntryReading::class.java)
+            val rows = candidates.keys.chunked(500).flatMap { readingDao.queryBuilder().where().`in`("reading", it).query() }
+            val entryDao = mJmDbHelper.getDbDao<EntryOptimized>(EntryOptimized::class.java)
+            val entries = rows.map { it.entryId }.distinct().chunked(500)
+                    .flatMap { entryDao.queryBuilder().where().`in`("id", it).query() }
+                    .associateBy { it.id }
+
+            // Every way an entry was reached, best first, then one result for each entry
+            val seen = found.mapTo(HashSet()) { it.entry.id }
+            val matches = rows.flatMap { row ->
+                val entry = entries[row.entryId] ?: return@flatMap emptyList()
+                candidates[row.reading].orEmpty()
+                        .filter { it.deinfInfo.reason.isEmpty() || ReadingLookup.fitsPartOfSpeech(entry.pos, it.deinfInfo.type) }
+                        .map { JmSearchResult(entry, it.deinfInfo, it.source, byReading = true, converted = it.converted) }
+            }
+            val best = rank(matches).filter { seen.add(it.entry.id) }
+
+            // Short readings match many words (かわ: 川, 皮, 革, 側, 河...): keep the commonest few of each length
+            best.groupBy { it.word.length }.values.flatMap { sameLength ->
+                sameLength.sortedWith(compareBy({ getEntryPriority(it) }, { getPriority(it) })).take(ReadingLookup.MAX_PER_LENGTH)
+            }
         }
-    }
-
-    private fun getEntryPriority(result: JmSearchResult) : Int
-    {
-        return if (result.entry.isPrimaryEntry) 0 else 1
-    }
-
-    private fun getPriority(result: JmSearchResult) : Int
-    {
-        val priorities = result.entry.priorities.split(",")
-        var lowestPriority = Int.MAX_VALUE
-
-        for (priority in priorities){
-
-            var pri = Int.MAX_VALUE
-
-            if (priority.contains("nf")){ // looks like the range is nf01-nf48
-                pri = priority.substring(2).toInt()
-            }
-            else if (priority == "news1"){
-                pri = 60
-            }
-            else if (priority == "news2"){
-                pri = 70
-            }
-            else if (priority == "ichi1"){
-                pri = 80
-            }
-            else if (priority == "ichi2"){
-                pri = 90
-            }
-            else if (priority == "spec1"){
-                pri = 100
-            }
-            else if (priority == "spec2"){
-                pri = 110
-            }
-            else if (priority == "gai1"){
-                pri = 120
-            }
-            else if (priority == "gai2"){
-                pri = 130
-            }
-
-            lowestPriority = if (pri < lowestPriority) pri else lowestPriority
+        catch (e: Exception)
+        {
+            Log.e(TAG, "Lookup by reading failed", e)
+            emptyList()
         }
-
-        return lowestPriority
     }
 }
 
