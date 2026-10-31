@@ -22,6 +22,7 @@ import java.sql.Statement;
 
 import ca.fuwafuwa.gaku.Database.IDatabaseHelper;
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized;
+import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryReading;
 import ca.fuwafuwa.gaku.XmlParsers.Interfaces.DictParser;
 import ca.fuwafuwa.gaku.XmlParsers.JmDict.JmParser;
 import ca.fuwafuwa.gaku.XmlParsers.KanjiDict2.Kd2Parser;
@@ -61,6 +62,7 @@ public class GenerateDictionary {
         try {
             connectionSource = new JdbcConnectionSource(databaseUrl);
             TableUtils.createTable(connectionSource, EntryOptimized.class);
+            TableUtils.createTable(connectionSource, EntryReading.class);
 
             DatabaseHelperImpl dbHelper = new DatabaseHelperImpl(connectionSource);
 

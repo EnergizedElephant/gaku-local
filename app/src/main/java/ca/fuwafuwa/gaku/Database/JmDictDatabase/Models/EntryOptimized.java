@@ -47,6 +47,10 @@ public class EntryOptimized implements Comparable<EntryOptimized> {
     public EntryOptimized(){
     }
 
+    public Integer getId() {
+        return id;
+    }
+
     public String getKanji() {
         return kanji;
     }

@@ -12,7 +12,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import ca.fuwafuwa.gaku.Constants;
@@ -20,6 +22,7 @@ import ca.fuwafuwa.gaku.Database.DatabaseHelper;
 import ca.fuwafuwa.gaku.Database.IDatabaseHelper;
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.Entry;
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized;
+import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryReading;
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.Kanji;
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.KanjiIrregularity;
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.KanjiPriority;
@@ -124,6 +127,9 @@ public class JmParser implements DictParser {
             }
         }
 
+        // Each reading of an entry written in kanji, and the first of its written forms it applies to
+        Map<String, Integer> readingRows = new LinkedHashMap<>();
+
         for (EntryOptimized entryOptimized : optimizedEntries)
         {
             String kanji = entryOptimized.getKanji();
@@ -205,6 +211,16 @@ public class JmParser implements DictParser {
             }
 
             mDbHelper.getDbDao(EntryOptimized.class).create(entryOptimized);
+
+            for (String reading : eoReadings)
+            {
+                readingRows.putIfAbsent(reading, entryOptimized.getId());
+            }
+        }
+
+        for (Map.Entry<String, Integer> readingRow : readingRows.entrySet())
+        {
+            mDbHelper.getDbDao(EntryReading.class).create(new EntryReading(readingRow.getKey(), readingRow.getValue()));
         }
     }
 

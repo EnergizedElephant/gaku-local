@@ -38,6 +38,7 @@ The unit tests don't cover the overlay windows, screen capture or the start scre
 For maintainers publishing a release:
 
 - Refresh the dictionary with `tools/update_dictionary.sh`, which downloads the latest JMdict_e and KANJIDIC2 from the EDRDG and rebuilds the database. Look up a few words, then commit the new file. The EDRDG's licence requires apps to keep the data up to date.
+- A change to the database's tables (the models, or what `GenerateDictionary` writes) needs a new file name too, or installed copies keep the old tables. The script names the file after JMdict's date, which changes almost daily.
 - Raise `version` in `app/build.gradle`. `versionCode` follows from it.
 - Name the signed APKs `gaku-offline-<version>.apk` and `gaku-lan-<version>.apk`, and attach both to a GitHub release with a few lines on what changed.
 - Keep the release key, and its password, backed up outside the repo. Android only installs an update signed with the same key, so if the key is lost, everyone has to uninstall and reinstall.
