@@ -92,7 +92,10 @@ public class JmParser implements DictParser {
 
         List<EntryOptimized> optimizedEntries = new ArrayList<>();
 
-        // May be multiple kanji entries - first entry in k_ele is the primary entry
+        // May be multiple kanji entries - first entry in k_ele is the primary entry. JMdict marks some
+        // spellings search-only, kanji (sK) and kana (sk): their rows stay, so text spelled that way is
+        // found, but they're never the primary entry
+        Set<EntryOptimized> searchOnlyRows = new HashSet<>();
         boolean isFirstEntry = true;
         for (JmKEle kEle : jmEntry.getKEle())
         {
@@ -101,6 +104,12 @@ public class JmParser implements DictParser {
             entryOptimized.setPriorities(Joiner.on(",").join(kEle.getKePri()));
             optimizedEntries.add(entryOptimized);
 
+            if (kEle.getKeInf().contains("sK"))
+            {
+                searchOnlyRows.add(entryOptimized);
+                continue;
+            }
+
             if (isFirstEntry)
             {
                 entryOptimized.setPrimaryEntry(true);
@@ -108,8 +117,9 @@ public class JmParser implements DictParser {
             isFirstEntry = false;
         }
 
-        // If no kanji entries, the reading entry is the kanji
-        if (optimizedEntries.isEmpty())
+        // If no kanji entries, the reading entry is the kanji. So too if the kanji are all search-only:
+        // the particle の, listed under 乃 and 之, is written の
+        if (isFirstEntry)
         {
             for (JmREle rEle : jmEntry.getREle())
             {
@@ -119,11 +129,11 @@ public class JmParser implements DictParser {
                 entryOptimized.setPriorities(Joiner.on(",").join(rEle.getRePri()));
                 optimizedEntries.add(entryOptimized);
 
-                if (isFirstEntry)
+                if (isFirstEntry && !rEle.getReInf().contains("sk"))
                 {
                     entryOptimized.setPrimaryEntry(true);
+                    isFirstEntry = false;
                 }
-                isFirstEntry = false;
             }
         }
 
@@ -134,6 +144,8 @@ public class JmParser implements DictParser {
         {
             String kanji = entryOptimized.getKanji();
             List<String> eoReadings = new ArrayList<>();
+            // Search-only kana (かわいーい) isn't shown, but is still looked up by
+            List<String> searchReadings = new ArrayList<>();
             List<String> eoMeanings = new ArrayList<>();
             Set eoPriorities = new HashSet<>(Arrays.asList(entryOptimized.getPriorities().split(",")));
             List<String> eoPos = new ArrayList<>();
@@ -144,14 +156,13 @@ public class JmParser implements DictParser {
                 {
                     List<String> readingRestriction = rEle.getReRestr();
 
-                    if (!readingRestriction.isEmpty() && readingRestriction.contains(kanji))
+                    if (readingRestriction.isEmpty() || readingRestriction.contains(kanji))
                     {
-                        eoReadings.add(rEle.getReb());
-                        eoPriorities.addAll(rEle.getRePri());
-                    }
-                    else if (readingRestriction.isEmpty())
-                    {
-                        eoReadings.add(rEle.getReb());
+                        searchReadings.add(rEle.getReb());
+                        if (!rEle.getReInf().contains("sk"))
+                        {
+                            eoReadings.add(rEle.getReb());
+                        }
                         eoPriorities.addAll(rEle.getRePri());
                     }
                 }
@@ -223,9 +234,13 @@ public class JmParser implements DictParser {
 
             mDbHelper.getDbDao(EntryOptimized.class).create(entryOptimized);
 
-            for (String reading : eoReadings)
+            // Not from search-only kanji: an entry with only those has its kana rows instead
+            if (!searchOnlyRows.contains(entryOptimized))
             {
-                readingRows.putIfAbsent(reading, entryOptimized.getId());
+                for (String reading : searchReadings)
+                {
+                    readingRows.putIfAbsent(reading, entryOptimized.getId());
+                }
             }
         }
 
