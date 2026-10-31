@@ -80,7 +80,7 @@ More detail: [Privacy and security](CHANGES.md#privacy-and-security) in the list
 
 Gaku is open source, under the [BSD 3-Clause licence](LICENSE): anyone may use, change and share it, as long as the copyright notice comes with it. Some bundled data has its own licence. The app lists all of these, and the libraries it uses, under **Credits and licences** on its start screen:
 
-- The dictionary includes material from the JMdict and KANJIDIC2 dictionary files, used in accordance with the licence provisions of the [Electronic Dictionary Research and Development Group](https://www.edrdg.org/edrdg/licence.html), CC BY-SA 4.0. The bundled database is built from the files of 30 October 2026, and is itself under CC BY-SA 4.0.
+- The dictionary includes material from the JMdict and KANJIDIC2 dictionary files, used in accordance with the licence provisions of the [Electronic Dictionary Research and Development Group](https://www.edrdg.org/edrdg/licence.html), CC BY-SA 4.0. The bundled database is built from the files of 31 October 2026, and is itself under CC BY-SA 4.0.
 - The deinflection rules in `deinflect.dat` are by Jonathan Zarate, from Rikaichan, which is under the GNU GPL (version 2 or later). The file keeps those terms, not this repo's.
 - Visually similar kanji come from Lars Yencken's [kanji confusion data](https://lars.yencken.org/datasets/kanji-confusion/) (Yencken & Baldwin, 2008), [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 - [manga-ocr](https://github.com/kha-white/manga-ocr) by Maciej Budyś, Apache-2.0, using the int8 ONNX export from [onnx-community/manga-ocr-base-ONNX](https://huggingface.co/onnx-community/manga-ocr-base-ONNX), run with [ONNX Runtime](https://onnxruntime.ai/), MIT.
