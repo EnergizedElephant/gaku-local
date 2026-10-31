@@ -10,10 +10,11 @@ import org.junit.Test
 
 class ReadingLookupTest
 {
-    private fun entry(kanji: String, priorities: String = "", primary: Boolean = true): EntryOptimized
+    private fun entry(kanji: String, priorities: String = "", readings: String = "", primary: Boolean = true): EntryOptimized
     {
         val entry = EntryOptimized()
         entry.kanji = kanji
+        entry.readings = readings
         entry.priorities = priorities
         entry.dictionary = DB_JMDICT_NAME
         entry.setPrimaryEntry(primary)
@@ -69,7 +70,7 @@ class ReadingLookupTest
     fun aLongerMatchByReadingBeatsAShorterOneByWrittenForm()
     {
         val yo = JmSearchResult(entry("よ", "spec1"), exact("よ"), "よ")
-        val yokei = JmSearchResult(entry("余計", "ichi1"), exact("よけい"), "よけい", byReading = true)
+        val yokei = JmSearchResult(entry("余計", "ichi1", "よけい"), exact("よけい"), "よけい", byReading = true)
 
         assertEquals(listOf("余計", "よ"), JmTask.rank(listOf(yo, yokei)).map { it.entry.kanji })
     }
@@ -79,7 +80,7 @@ class ReadingLookupTest
     {
         // 網 is commoner than the particle here, but the text is written as もう
         val mou = JmSearchResult(entry("もう", "spec1"), exact("もう"), "もう")
-        val ami = JmSearchResult(entry("網", "news1"), exact("もう"), "もう", byReading = true)
+        val ami = JmSearchResult(entry("網", "news1", "もう, あみ"), exact("もう"), "もう", byReading = true)
 
         assertEquals(listOf("もう", "網"), JmTask.rank(listOf(ami, mou)).map { it.entry.kanji })
     }
@@ -96,7 +97,7 @@ class ReadingLookupTest
     @Test
     fun asWrittenBeatsConvertedAndFewerDeinflectionsBeatMore()
     {
-        val converted = JmSearchResult(entry("凄い"), exact("すごい"), "スゴイ", byReading = true, converted = true)
+        val converted = JmSearchResult(entry("凄い", readings = "すごい"), exact("すごい"), "スゴイ", byReading = true, converted = true)
         val asWritten = JmSearchResult(entry("スゴイ"), exact("スゴイ"), "スゴイ")
         assertEquals(listOf("スゴイ", "凄い"), JmTask.rank(listOf(converted, asWritten)).map { it.entry.kanji })
 
@@ -110,7 +111,7 @@ class ReadingLookupTest
     {
         // もうだめだ: 猛打 is read もうだ, across もう and だ
         val mou = JmSearchResult(entry("もう", "spec1"), exact("もう"), "もう")
-        val mouda = JmSearchResult(entry("猛打", "news1,nf24"), exact("もうだ"), "もうだ", byReading = true)
+        val mouda = JmSearchResult(entry("猛打", "news1,nf24", "もうだ"), exact("もうだ"), "もうだ", byReading = true)
 
         assertEquals(listOf("もう", "猛打"), JmTask.rank(listOf(mouda, mou)).map { it.entry.kanji })
     }
@@ -120,7 +121,7 @@ class ReadingLookupTest
     {
         // 学校にいく: 二位 is read にい, across に and いく
         val ni = JmSearchResult(entry("に", "spec1"), exact("に"), "に")
-        val nii = JmSearchResult(entry("二位"), exact("にい"), "にい", byReading = true)
+        val nii = JmSearchResult(entry("二位", readings = "にい"), exact("にい"), "にい", byReading = true)
 
         assertEquals(listOf("に", "二位"), JmTask.rank(listOf(nii, ni)).map { it.entry.kanji })
     }
@@ -129,20 +130,39 @@ class ReadingLookupTest
     fun aWordUsuallyWrittenInKanaOrACommonOneStillBeatsAParticle()
     {
         val da = JmSearchResult(entry("だ", "spec1"), exact("だ"), "だ")
-        val dame = JmSearchResult(entry("駄目", "ichi1,uk"), exact("だめ"), "だめ", byReading = true)
+        val dame = JmSearchResult(entry("駄目", "ichi1,uk", "だめ"), exact("だめ"), "だめ", byReading = true)
         assertEquals(listOf("駄目", "だ"), JmTask.rank(listOf(da, dame)).map { it.entry.kanji })
 
         val ne = JmSearchResult(entry("ね", "spec1"), exact("ね"), "ね")
-        val neko = JmSearchResult(entry("猫", "ichi1"), exact("ねこ"), "ねこ", byReading = true)
+        val neko = JmSearchResult(entry("猫", "ichi1", "ねこ, ネコ"), exact("ねこ"), "ねこ", byReading = true)
         assertEquals(listOf("猫", "ね"), JmTask.rank(listOf(ne, neko)).map { it.entry.kanji })
     }
 
     @Test
     fun ofWordsFoundByReadingThoseUsuallyWrittenInKanaComeFirst()
     {
-        val iku = JmSearchResult(entry("行く", "ichi1,uk"), exact("いく"), "いく", byReading = true)
-        val ikuNumber = JmSearchResult(entry("幾", "ichi1"), exact("いく"), "いく", byReading = true)
+        val iku = JmSearchResult(entry("行く", "ichi1,uk", "いく, ゆく"), exact("いく"), "いく", byReading = true)
+        val ikuNumber = JmSearchResult(entry("幾", "ichi1", "いく"), exact("いく"), "いく", byReading = true)
 
         assertEquals(listOf("行く", "幾"), JmTask.rank(listOf(ikuNumber, iku)).map { it.entry.kanji })
+    }
+
+    @Test
+    fun aWordFoundByAReadingOtherThanItsFirstComesAfterTheWrittenForms()
+    {
+        // 学校にいく: 新 can be read にい, but that's its third reading
+        val ni = JmSearchResult(entry("に", "spec1"), exact("に"), "に")
+        val shin = JmSearchResult(entry("新", "ichi1,uk", "さら, あら, にい"), exact("にい"), "にい", byReading = true)
+
+        assertEquals(listOf("に", "新"), JmTask.rank(listOf(shin, ni)).map { it.entry.kanji })
+    }
+
+    @Test
+    fun katakanaTextMatchesAFirstReadingInHiragana()
+    {
+        val neko = JmSearchResult(entry("猫", "ichi1", "ねこ, ネコ"), exact("ネコ"), "ネコ", byReading = true)
+        val ne = JmSearchResult(entry("ネ"), exact("ネ"), "ネ")
+
+        assertEquals(listOf("猫", "ネ"), JmTask.rank(listOf(ne, neko)).map { it.entry.kanji })
     }
 }

@@ -10,6 +10,7 @@ import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryOptimized
 import ca.fuwafuwa.gaku.Database.JmDictDatabase.Models.EntryReading
 import ca.fuwafuwa.gaku.Deinflictor.DeinflectionInfo
 import ca.fuwafuwa.gaku.Deinflictor.Deinflector
+import ca.fuwafuwa.gaku.LangUtils
 import java.sql.SQLException
 import java.util.ArrayList
 import kotlin.collections.HashSet
@@ -53,21 +54,30 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
         /**
          * How much text [result] counts as matching. Matching a reading is weaker evidence than matching
          * the written form, since kana text can run across words: in もうだめだ, 猛打 (もうだ) spans もう
-         * and だ, and in にいく, 二位 (にい) spans に and いく. Unless the word is usually written in kana
-         * (駄目, 凄い), so kana is its normal spelling, a rare word found by reading counts for nothing
-         * against the written forms, and a common one has to beat a word written in kana of two or
-         * more characters ([longestWritten]) by two characters rather than one.
+         * and だ, and in にいく, 二位 (にい) spans に and いく. So a word found by a reading other than its
+         * first (新 by にい), or a rare one, counts for nothing against the written forms. Unless the word
+         * is usually written in kana (駄目, 凄い), so kana is its normal spelling, a common one has to beat
+         * a word written in kana of two or more characters ([longestWritten]) by two characters, not one.
          */
         private fun matchedLength(result: JmSearchResult, longestWritten: Int) : Int
         {
             val length = result.word.length
             return when
             {
-                !result.byReading || isUsuallyKana(result.entry) -> length
+                !result.byReading -> length
+                !matchesFirstReading(result) -> 0
+                isUsuallyKana(result.entry) -> length
                 getPriority(result) == Int.MAX_VALUE -> 0
                 longestWritten >= 2 -> length - 1
                 else -> length
             }
+        }
+
+        /** Whether [result] was found by its entry's first, usual reading (よけい for 余計, not にい for 新) */
+        private fun matchesFirstReading(result: JmSearchResult) : Boolean
+        {
+            val first = result.entry.readings.substringBefore(", ")
+            return LangUtils.ConvertKanatanaToHiragana(first) == LangUtils.ConvertKanatanaToHiragana(result.deinfInfo.word)
         }
 
         /** Whether JMdict marks [entry] as usually written in kana: the generator keeps that as a "uk" tag */
