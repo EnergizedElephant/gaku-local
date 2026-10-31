@@ -26,6 +26,7 @@ class MainStartFragment : Fragment()
 
     private lateinit var tutorialText : TextView
     private lateinit var githubText : TextView
+    private lateinit var creditsText : TextView
     private lateinit var stateText : TextView
     private lateinit var hintText : TextView
     private lateinit var startButton : Button
@@ -58,6 +59,7 @@ class MainStartFragment : Fragment()
 
         tutorialText = rootView.findViewById(R.id.gaku_tutorial)
         githubText = rootView.findViewById(R.id.gaku_github)
+        creditsText = rootView.findViewById(R.id.gaku_credits)
         stateText = rootView.findViewById(R.id.gaku_state)
         hintText = rootView.findViewById(R.id.gaku_hint)
         startButton = rootView.findViewById(R.id.gaku_start)
@@ -72,6 +74,10 @@ class MainStartFragment : Fragment()
 
         githubText.setOnClickListener {
             openUrl(mainActivity, "https://github.com/EnergizedElephant/gaku-local")
+        }
+
+        creditsText.setOnClickListener {
+            startActivity(Intent(mainActivity, CreditsActivity::class.java))
         }
 
         startButton.setOnClickListener {

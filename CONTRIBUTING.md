@@ -54,6 +54,7 @@ Everything is under `app/src/main/java/ca/fuwafuwa/gaku/`:
 - `Llm/`: the Ollama client and its prompts, for the lan build.
 - `Anki/`: adding notes through AnkiDroid's content provider.
 - `PassthroughActivity.kt`: text selected or shared in other apps.
+- `CreditsActivity.kt`: the Credits and licences screen, from `res/raw/credits.html` and the `licence_*.txt` files beside it. A new library or bundled data needs its credit there, and its licence text if it isn't already included. `licence_gaku.txt` is a copy of `LICENSE`, so change both.
 - `Tutorial*.kt`: the tutorial. Its videos are `app/src/main/res/raw/tut_*.mp4`, recorded on the emulator over pages of synthetic text.
 
 Elsewhere:

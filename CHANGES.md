@@ -61,6 +61,7 @@ In detail:
 - **Permission prompts that recover.** They come one at a time, and declining one leaves a button to try again instead of closing the app.
 - **Buttons instead of hidden gestures.** The results window has Translate, Copy, Anki, Read with ML Kit or manga-ocr, Instant and close buttons, and each character has its alternatives, Edit and Delete. The results open with the first word looked up, so these are in view without a tap. The rows scroll on narrow screens.
 - **Words to Anki.** With [AnkiDroid](https://github.com/ankidroid/Anki-Android) connected on the start screen, *Anki* in the results adds the word you looked up to a deck you choose. The card has the word's reading and meaning, the text it was in with the word in bold, and, in the lan build, your model's translation. It's tagged `gaku`, and a word that already has a card isn't added again. It works on the device, through AnkiDroid's own permission, so the offline build can do it too.
+- **Credits and licences**, a screen reached from the start screen, credit the dictionary, data and libraries Gaku bundles, with their licence texts, as the dictionary's licence asks.
 - **Back closes the results**, instead of going to the app underneath and closing the page you were reading.
 - **A Quick Settings tile** shows, hides or starts Gaku, and the notification's buttons are labelled.
 - **No freezes while reading.** A double-tap during a read says so, and hiding Gaku mid-read is instant.

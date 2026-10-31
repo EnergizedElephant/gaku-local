@@ -6,6 +6,10 @@ app/src/main/assets/*
 app/src/main/res/raw/*
 # The tutorial videos, recorded on the emulator with a synthetic page
 !app/src/main/res/raw/tut_*.mp4
+# The Credits and licences screen
+!app/src/main/res/raw/credits.html
+!app/src/main/res/raw/licence_*.txt
+!app/src/main/res/raw/onnxruntime_third_party_notices.txt
 
 # Ignore private and sensitive configuration files for Gaku
 # If you pull the repo, you will need to create and populate these files yourself
