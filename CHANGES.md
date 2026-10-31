@@ -34,6 +34,7 @@ In detail:
 ## Reading
 
 - **manga-ocr by default.** [manga-ocr](https://github.com/kha-white/manga-ocr) runs on the device with ONNX Runtime. It reads a whole bubble at once, vertical or horizontal, and leaves furigana out. *Read with ML Kit* in the results rereads the same crop with ML Kit, which copes better with a box spanning several bubbles.
+- **A current dictionary.** JMdict and KANJIDIC2 are from 30 October 2026, where Gaku's were from February 2019: about 37,000 more entries, and more senses for many words. `tools/update_dictionary.sh` rebuilds them, as the EDRDG's licence asks apps to do regularly.
 - **Right reading order.** Vertical columns read right to left. ML Kit lists them left to right.
 - **Furigana.** With ML Kit, furigana is left out of the text and used to correct the kanji beside it, matching inflected words by their dictionary form.
 - **Fixing misreads again.** Each character offers alternatives: manga-ocr's next guesses, visually similar kanji from Lars Yencken's data, and look-alike kana. The edit window shows the character in context.

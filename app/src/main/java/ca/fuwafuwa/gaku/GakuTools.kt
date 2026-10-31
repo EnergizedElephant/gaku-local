@@ -106,9 +106,11 @@ fun startGakuService(context: Context, i: Intent)
 fun setupGakuDatabasesAndFiles(context: Context)
 {
     try {
-        // Left by earlier builds: saved screen captures, and the Tesseract data Gaku never used
+        // Left by earlier builds: saved screen captures, the Tesseract data Gaku never used, and
+        // dictionaries since replaced
         deleteFilesFolder(context, SCREENSHOT_FOLDER_NAME)
         deleteFilesFolder(context, "tessdata")
+        deleteOldDictionaries(context)
 
         val filesAndPaths = hashMapOf(
                 JMDICT_DATABASE_NAME to context.filesDir.absolutePath)
@@ -190,6 +192,25 @@ private fun deleteFilesFolder(context: Context, name: String)
     if (dir.exists() && !dir.deleteRecursively())
     {
         Log.w(TAG, "Unable to fully delete ${dir.absolutePath}")
+    }
+}
+
+/**
+ * Each dictionary refresh ships the database under a new name (tools/update_dictionary.sh), so the
+ * copy an earlier version made in filesDir is left behind: delete it, with its SQLite side files.
+ */
+private fun deleteOldDictionaries(context: Context)
+{
+    val old = context.filesDir.listFiles { file ->
+        (file.name.startsWith("dictionary-") || file.name.startsWith("DB_KakuDict-")) &&
+                !file.name.startsWith(JMDICT_DATABASE_NAME)
+    } ?: return
+    for (file in old)
+    {
+        if (!file.delete())
+        {
+            Log.w(TAG, "Unable to delete ${file.absolutePath}")
+        }
     }
 }
 
