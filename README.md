@@ -39,6 +39,7 @@ If there's no release yet, you can [build it yourself](CONTRIBUTING.md#building)
 - **A character was misread?** Tap it in the results. Lookalike characters appear below it: tap one to swap it in, use **Edit** to type or handwrite the right one, or **Delete** it.
 - **Single words:** turn on **Instant** in the results, and a small box is read as soon as you let go of it.
 - **Closing the results:** tap **✕**, press **Back**, or tap outside them.
+- **Shortcuts,** if you'd rather use gestures: in the results, long-press a character to copy the text, or drag a character down onto a lookalike to swap it in, up and to the left to edit it, or up and to the right to delete it. Flick a blank part of the results upwards to close them, and tap the far left or right of long text to page through it.
 - **Hiding the box:** use Gaku's notification, its Quick Settings tile or its start screen. Turning the screen off hides it too. **Stop** ends screen sharing.
 - **Text you can select,** such as on a web page: select it and choose **Gaku** from the menu (it may be under ⋮), or share it to Gaku.
 
