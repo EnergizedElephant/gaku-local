@@ -104,4 +104,45 @@ class ReadingLookupTest
         val oneStep = JmSearchResult(entry("乙"), DeinflectionInfo("乙", 2, "< a"), "かけた")
         assertEquals(listOf("乙", "甲"), JmTask.rank(listOf(twoSteps, oneStep)).map { it.entry.kanji })
     }
+
+    @Test
+    fun aReadingRunningAcrossWordsDoesNotBeatAKanaWord()
+    {
+        // もうだめだ: 猛打 is read もうだ, across もう and だ
+        val mou = JmSearchResult(entry("もう", "spec1"), exact("もう"), "もう")
+        val mouda = JmSearchResult(entry("猛打", "news1,nf24"), exact("もうだ"), "もうだ", byReading = true)
+
+        assertEquals(listOf("もう", "猛打"), JmTask.rank(listOf(mouda, mou)).map { it.entry.kanji })
+    }
+
+    @Test
+    fun aRareWordFoundByReadingComesAfterTheWrittenForms()
+    {
+        // 学校にいく: 二位 is read にい, across に and いく
+        val ni = JmSearchResult(entry("に", "spec1"), exact("に"), "に")
+        val nii = JmSearchResult(entry("二位"), exact("にい"), "にい", byReading = true)
+
+        assertEquals(listOf("に", "二位"), JmTask.rank(listOf(nii, ni)).map { it.entry.kanji })
+    }
+
+    @Test
+    fun aWordUsuallyWrittenInKanaOrACommonOneStillBeatsAParticle()
+    {
+        val da = JmSearchResult(entry("だ", "spec1"), exact("だ"), "だ")
+        val dame = JmSearchResult(entry("駄目", "ichi1,uk"), exact("だめ"), "だめ", byReading = true)
+        assertEquals(listOf("駄目", "だ"), JmTask.rank(listOf(da, dame)).map { it.entry.kanji })
+
+        val ne = JmSearchResult(entry("ね", "spec1"), exact("ね"), "ね")
+        val neko = JmSearchResult(entry("猫", "ichi1"), exact("ねこ"), "ねこ", byReading = true)
+        assertEquals(listOf("猫", "ね"), JmTask.rank(listOf(ne, neko)).map { it.entry.kanji })
+    }
+
+    @Test
+    fun ofWordsFoundByReadingThoseUsuallyWrittenInKanaComeFirst()
+    {
+        val iku = JmSearchResult(entry("行く", "ichi1,uk"), exact("いく"), "いく", byReading = true)
+        val ikuNumber = JmSearchResult(entry("幾", "ichi1"), exact("いく"), "いく", byReading = true)
+
+        assertEquals(listOf("行く", "幾"), JmTask.rank(listOf(ikuNumber, iku)).map { it.entry.kanji })
+    }
 }

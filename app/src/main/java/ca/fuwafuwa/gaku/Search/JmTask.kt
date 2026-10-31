@@ -29,21 +29,51 @@ constructor(private val mSearchInfo: SearchInfo, private val mSearchJmTaskDone: 
         private val TAG = JmTask::class.java.getName()
 
         /**
-         * Best first, in the order Yomitan sorts by: the most text matched, then not converted from
-         * katakana, then the fewest deinflections, then matched by written form before reading (の the
-         * particle before 野); then the primary written form and JMdict's priority tags. KANJIDIC's
-         * single kanji come after JMdict.
+         * Best first, in the order Yomitan sorts by: the most text matched (see [matchedLength]), then
+         * not converted from katakana, then the fewest deinflections, then matched by written form
+         * before reading (の the particle before 野), then, of those matched by reading, words usually
+         * written in kana (行く before 幾); then the primary written form and JMdict's priority tags.
+         * KANJIDIC's single kanji come after JMdict.
          */
         fun rank(results: List<JmSearchResult>) : List<JmSearchResult>
         {
+            val longestWritten = results.filter { !it.byReading && it.entry.dictionary == DB_JMDICT_NAME }.maxOfOrNull { it.word.length } ?: 0
+
             return results.sortedWith(compareBy(
                     { getDictPriority(it) },
-                    { 0 - it.word.length },
+                    { 0 - matchedLength(it, longestWritten) },
                     { it.converted },
                     { ReadingLookup.deinflectionSteps(it.deinfInfo) },
                     { it.byReading },
+                    { it.byReading && !isUsuallyKana(it.entry) },
                     { getEntryPriority(it) },
                     { getPriority(it) }))
+        }
+
+        /**
+         * How much text [result] counts as matching. Matching a reading is weaker evidence than matching
+         * the written form, since kana text can run across words: in もうだめだ, 猛打 (もうだ) spans もう
+         * and だ, and in にいく, 二位 (にい) spans に and いく. Unless the word is usually written in kana
+         * (駄目, 凄い), so kana is its normal spelling, a rare word found by reading counts for nothing
+         * against the written forms, and a common one has to beat a word written in kana of two or
+         * more characters ([longestWritten]) by two characters rather than one.
+         */
+        private fun matchedLength(result: JmSearchResult, longestWritten: Int) : Int
+        {
+            val length = result.word.length
+            return when
+            {
+                !result.byReading || isUsuallyKana(result.entry) -> length
+                getPriority(result) == Int.MAX_VALUE -> 0
+                longestWritten >= 2 -> length - 1
+                else -> length
+            }
+        }
+
+        /** Whether JMdict marks [entry] as usually written in kana: the generator keeps that as a "uk" tag */
+        private fun isUsuallyKana(entry: EntryOptimized) : Boolean
+        {
+            return entry.priorities.split(",").contains("uk")
         }
 
         private fun getDictPriority(result: JmSearchResult) : Int

@@ -200,6 +200,17 @@ public class JmParser implements DictParser {
             eoPriorities.remove(null);
             eoPriorities.remove("");
 
+            // JMdict's "usually written in kana" (uk) on any sense, kept with the priority tags: the
+            // search trusts a word found by its reading more when kana is how it's usually written
+            for (JmSense sense : jmEntry.getSense())
+            {
+                if (sense.getMisc().contains("uk"))
+                {
+                    eoPriorities.add("uk");
+                    break;
+                }
+            }
+
             entryOptimized.setReadings(Joiner.on(", ").join(eoReadings));
             entryOptimized.setMeanings(Joiner.on(Constants.DB_SPLIT_CHAR).join(eoMeanings));
             entryOptimized.setPos(Joiner.on(Constants.DB_SPLIT_CHAR).join(eoPos));
