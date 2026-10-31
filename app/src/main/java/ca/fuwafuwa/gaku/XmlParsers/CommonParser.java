@@ -52,9 +52,13 @@ public class CommonParser {
                 case XmlPullParser.TEXT:
                     sb.append(parser.getText());
                     break;
-                case XmlPullParser.ENTITY_REF:
-                    sb.append(parser.getText().trim());
+                case XmlPullParser.ENTITY_REF: {
+                    // An entity the parser couldn't resolve, such as JMdict's &abbr; once
+                    // tools/update_dictionary.sh has dropped the DOCTYPE, has no text: keep its name
+                    String text = parser.getText();
+                    sb.append(text != null ? text.trim() : parser.getName());
                     break;
+                }
             }
             parser.nextToken();
         }

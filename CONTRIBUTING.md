@@ -24,7 +24,7 @@ adb install -r app/build/outputs/apk/offline/debug/app-offline-debug.apk
 bash ./gradlew testOfflineDebugUnitTest --tests 'ca.fuwafuwa.gaku.Ocr.*' --tests 'ca.fuwafuwa.gaku.Llm.*' --tests 'ca.fuwafuwa.gaku.Anki.*'
 ```
 
-This runs the tests for reading order and furigana, the Ollama client and Anki cards. `--tests` filters only apply to the task just before them, so run each flavour's test task on its own. `GenerateDictionary` isn't a real test: it builds the dictionary database from a JMdict XML file at a hard-coded Windows path, so it fails elsewhere.
+This runs the tests for reading order and furigana, the Ollama client and Anki cards. `--tests` filters only apply to the task just before them, so run each flavour's test task on its own. `GenerateDictionary` isn't a real test: `tools/update_dictionary.sh` runs it to rebuild the dictionary, and it's skipped otherwise.
 
 The unit tests don't cover the overlay windows, screen capture or the start screen, so try those changes on a phone or the emulator.
 
@@ -37,6 +37,7 @@ The unit tests don't cover the overlay windows, screen capture or the start scre
 
 For maintainers publishing a release:
 
+- Refresh the dictionary with `tools/update_dictionary.sh`, which downloads the latest JMdict_e and KANJIDIC2 from the EDRDG and rebuilds the database. Look up a few words, then commit the new file. The EDRDG's licence requires apps to keep the data up to date.
 - Raise `version` in `app/build.gradle`. `versionCode` follows from it.
 - Name the signed APKs `gaku-offline-<version>.apk` and `gaku-lan-<version>.apk`, and attach both to a GitHub release with a few lines on what changed.
 - Keep the release key, and its password, backed up outside the repo. Android only installs an update signed with the same key, so if the key is lost, everyone has to uninstall and reinstall.
@@ -49,7 +50,7 @@ Everything is under `app/src/main/java/ca/fuwafuwa/gaku/`:
 - `MainService.java`: the foreground service that holds the screen capture, the notification and show/hide. `ShowHideTileService.kt` is the Quick Settings tile.
 - `Windows/`: the overlay windows. `Window.java` is their base and `WindowCoordinator.kt` creates them. `CaptureWindow.kt` is the box, `InformationWindow.java` the results, and `EditWindow.kt`, `KanjiChoiceWindow.kt`, `InstantKanjiWindow.kt`, `InstantInfoWindow.kt` and `LlmChatWindow.kt` the rest.
 - `Ocr/`: `OcrRunnable.kt` runs a read with manga-ocr or ML Kit and puts the text in reading order, using furigana to correct kanji. `MangaOcr.kt` runs the model, and `OcrCorrection.kt` holds the look-alike kana.
-- `Search/`, `Deinflictor/` and `Database/`: dictionary look-ups, deinflection and the bundled SQLite database (through ORMLite). `XmlParsers/` builds that database from the JMdict and KANJIDIC XML files.
+- `Search/`, `Deinflictor/` and `Database/`: dictionary look-ups, deinflection and the bundled SQLite database (through ORMLite). `XmlParsers/` builds that database (with `tools/update_dictionary.sh`) from the JMdict and KANJIDIC XML files.
 - `Llm/`: the Ollama client and its prompts, for the lan build.
 - `Anki/`: adding notes through AnkiDroid's content provider.
 - `PassthroughActivity.kt`: text selected or shared in other apps.
@@ -58,7 +59,7 @@ Everything is under `app/src/main/java/ca/fuwafuwa/gaku/`:
 Elsewhere:
 
 - The two builds' manifests in `app/src/offline` and `app/src/lan` set the network permissions, and `BuildConfig.LLM` switches the lan build's features on.
-- `tools/fetch_manga_ocr.sh` downloads the model, and `tools/similar_kanji.py` rebuilds `app/src/main/assets/similar_kanji.txt` from Yencken's `jyouyou__strokeEditDistance.csv`.
+- `tools/fetch_manga_ocr.sh` downloads the model, `tools/update_dictionary.sh` rebuilds the dictionary, and `tools/similar_kanji.py` rebuilds `app/src/main/assets/similar_kanji.txt` from Yencken's `jyouyou__strokeEditDistance.csv`.
 
 ## Making a change
 

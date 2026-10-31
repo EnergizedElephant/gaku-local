@@ -151,6 +151,7 @@ public class JmParser implements DictParser {
                 }
             }
 
+            String previousPos = null;
             for (JmSense sense : jmEntry.getSense())
             {
                 List<String> kanjiRestriction = sense.getStagk();
@@ -182,7 +183,12 @@ public class JmParser implements DictParser {
                 fullSense.append(Joiner.on(", ").join(meaningSense));
 
                 eoMeanings.add(fullSense.toString());
-                eoPos.add(Joiner.on(",").join(sense.getPos()));
+
+                // JMdict used to give a part of speech only where it changed, and the results show it
+                // before each sense that has one. It now repeats it on every sense, so keep the changes.
+                String pos = Joiner.on(",").join(sense.getPos());
+                eoPos.add(pos.equals(previousPos) ? "" : pos);
+                previousPos = pos;
             }
 
             eoPriorities.remove(null);

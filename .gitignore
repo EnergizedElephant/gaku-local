@@ -1,6 +1,8 @@
 # Ignore data files for Gaku - these shouldn't be checked in
 app/src/main/assets/*
 !app/src/main/assets/similar_kanji.txt
+# The dictionary, rebuilt by tools/update_dictionary.sh
+!app/src/main/assets/dictionary-*.db
 app/src/main/res/raw/*
 # The tutorial videos, recorded on the emulator with a synthetic page
 !app/src/main/res/raw/tut_*.mp4

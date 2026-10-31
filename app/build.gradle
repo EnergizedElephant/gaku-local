@@ -85,6 +85,12 @@ android {
 
     testOptions {
         unitTests.returnDefaultValues = true
+        // tools/update_dictionary.sh hands GenerateDictionary its files as -Pgaku.* properties
+        unitTests.all {
+            ['gaku.jmdict', 'gaku.kanjidic2', 'gaku.dictionaryOut'].each { name ->
+                if (project.hasProperty(name)) systemProperty name, project.property(name)
+            }
+        }
     }
 }
 

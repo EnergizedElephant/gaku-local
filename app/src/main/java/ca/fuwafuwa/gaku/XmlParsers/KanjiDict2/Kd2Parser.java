@@ -37,7 +37,7 @@ public class Kd2Parser implements DictParser {
     private IDatabaseHelper mDbHelper;
     private int parseCount = 0;
 
-    Kd2Parser(IDatabaseHelper dbHelper){
+    public Kd2Parser(IDatabaseHelper dbHelper){
         mDbHelper = dbHelper;
     }
 
