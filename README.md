@@ -2,7 +2,7 @@
 
 **Gaku** is a Japanese dictionary for Android that reads text straight off your screen. Drag its box over Japanese text in any app, such as a manga reader, a game or a photo, double-tap, and Gaku shows what the words mean. It's made for text you can't select and copy. This version reads the text and looks up the words on your device.
 
-> **Made with Claude Code.** This version's changes were made by [Claude Code](https://claude.com/claude-code), Anthropic's AI coding assistant, with some direction from the repo's owner. The app itself comes from [Kaku](https://github.com/0xbad1d3a5/Kaku) by 0xbad1d3a5 and [Gaku](https://github.com/ExecuteOrd66/Gaku) by Carl Oosthuizen. See [what's changed](CHANGES.md).
+> **Made with Claude Code.** This version's changes were made by [Claude Code](https://claude.com/claude-code). The app itself comes from [Kaku](https://github.com/0xbad1d3a5/Kaku) by 0xbad1d3a5 and [Gaku](https://github.com/ExecuteOrd66/Gaku) by Carl Oosthuizen. See [what's changed](CHANGES.md). I am not a developer and originally just wanted Gaku/Kaku updated for my personal use. As it became a fairly large overhaul I decided to make it public in case it could benefit anyone else. This is the definition of a vibe-coded app, including documentation, but if anyone wants to make improvements feel free.
 
 <p align="center">
   <img src="docs/images/reading.png" width="250" alt="Gaku's box over a speech bubble">
